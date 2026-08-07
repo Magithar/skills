@@ -1,6 +1,6 @@
 {
   "name": "skill-land",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "description": "Install an agent skill to the directory the agent actually reads, then verify it landed. Exits non-zero if it didn't.",
   "keywords": [
     "agent-skills",
@@ -25,7 +25,7 @@
   "license": "MIT",
   "type": "module",
   "bin": {
-    "skill-land": "./skill-land.mjs"
+    "skill-land": "skill-land.mjs"
   },
   "files": [
     "skill-land.mjs",

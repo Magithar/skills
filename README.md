@@ -73,11 +73,12 @@ exits non-zero if it didn't. Built because `npx skills add -g` reports success w
 somewhere Codex and Antigravity never look.
 
 ```bash
-node tools/skill-land/skill-land.mjs Magithar/SKILLmama --for codex,antigravity
-node tools/skill-land/skill-land.mjs Magithar/SKILLmama --for codex --verify
+npx skill-land Magithar/SKILLmama --for codex,antigravity
+npx skill-land Magithar/SKILLmama --for codex --verify
 ```
 
-See [tools/skill-land/README.md](tools/skill-land/README.md).
+Published as [`skill-land`](https://www.npmjs.com/package/skill-land) on npm.
+Source and docs: [tools/skill-land/](tools/skill-land/README.md).
 
 ## Adding a skill
 

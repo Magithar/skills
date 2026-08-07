@@ -8,6 +8,8 @@ npx skill-land Magithar/SKILLmama --for codex,antigravity
 npx skill-land Magithar/SKILLmama --for codex --verify   # audit an existing install
 ```
 
+[![npm](https://img.shields.io/npm/v/skill-land)](https://www.npmjs.com/package/skill-land)
+
 ## Why this exists
 
 `npx skills add -a <agent> -g` reports success while writing to the wrong directory
