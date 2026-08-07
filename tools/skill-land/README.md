@@ -184,6 +184,22 @@ $ skill-land product-on-purpose/pm-skills --for codex
            ...
 ```
 
+## Releasing
+
+Published from CI by [trusted publishing](https://docs.npmjs.com/trusted-publishers), so there is
+no `NPM_TOKEN` in this repo and the npm account keeps 2FA on write actions. npm mints a
+short-lived token from the GitHub identity of `.github/workflows/publish-skill-land.yml`.
+
+```bash
+# bump version in package.json, commit, then:
+git tag skill-land-v1.0.2
+git push origin skill-land-v1.0.2
+```
+
+CI runs the tests, refuses to publish a version that already exists, checks the tag matches
+`package.json`, and publishes. The tag is package-scoped so other tools in this repo can release
+independently.
+
 ## Adding an agent
 
 Edit `agents.json`. `broken: true` marks agents where the upstream CLI misroutes a

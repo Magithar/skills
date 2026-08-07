@@ -27,6 +27,9 @@
   "bin": {
     "skill-land": "skill-land.mjs"
   },
+  "scripts": {
+    "test": "node test.mjs"
+  },
   "files": [
     "skill-land.mjs",
     "agents.json",
