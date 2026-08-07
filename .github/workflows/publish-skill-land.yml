@@ -67,3 +67,28 @@ jobs:
 
       - name: Publish
         run: npm publish
+
+      # A tag is only a pointer. Without this the repo front page shows no
+      # releases at all, which is how skill-land-v1.1.0 shipped with nothing
+      # to point people at.
+      - name: Create GitHub release
+        if: startsWith(github.ref, 'refs/tags/')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          TAG="${GITHUB_REF#refs/tags/}"
+          NOTES=$(awk -v v="$VERSION" '
+            $0 ~ "^## +"v"( |$)" {found=1; next}
+            found && /^## / {exit}
+            found {print}
+          ' CHANGELOG.md 2>/dev/null)
+          if [ -z "$NOTES" ]; then
+            NOTES="See [CHANGELOG.md](https://github.com/${GITHUB_REPOSITORY}/blob/main/tools/skill-land/CHANGELOG.md)."
+          fi
+          printf '%s\n\n---\n\n`npx skill-land@%s`  ·  [npm](https://www.npmjs.com/package/skill-land/v/%s)\n' \
+            "$NOTES" "$VERSION" "$VERSION" > /tmp/notes.md
+          gh release create "$TAG" \
+            --repo "$GITHUB_REPOSITORY" \
+            --title "skill-land v$VERSION" \
+            --notes-file /tmp/notes.md
