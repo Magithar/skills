@@ -5,14 +5,25 @@ file runs on Claude Code, Codex and Antigravity.
 
 ## Install
 
-### Claude Code — the whole set, once
+### Claude Code — add the marketplace once
 
 ```
 /plugin marketplace add Magithar/skills
-/plugin install magithar-skills@magithar
+/plugin install skillmama@magithar
 ```
 
-New skills arrive with plugin updates. Nothing to re-install per skill.
+`/plugin marketplace update` pulls new and updated plugins later.
+
+Plugins available:
+
+| Plugin | What it is | Hosted in |
+|---|---|---|
+| `skillmama` | capability discovery: finds, scores and ranks libraries for your stack | [Magithar/SKILLmama](https://github.com/Magithar/SKILLmama) |
+
+A marketplace can list plugins that live in other repos, so SKILLmama keeps its own repository,
+issues and release history while still being installable from here. Skills added directly to this
+repo ship as a second plugin, `magithar-skills`, which is listed automatically once it contains at
+least one skill.
 
 ### One skill, any agent
 
@@ -78,6 +89,10 @@ See [tools/skill-land/README.md](tools/skill-land/README.md).
 `plugin.json` is generated, never hand-edited. A manifest maintained by hand drifts from the
 filesystem silently, which is the same class of bug as keeping multiple copies of one file. CI
 runs `sync-plugin.mjs --check` and fails if they disagree.
+
+The script also adds `magithar-skills` to `marketplace.json` on the first skill, and removes it
+again if the last one goes. Publishing a plugin entry that installs nothing is worse than not
+listing it: users get something that looks like it worked and did nothing.
 
 Skills under `in-progress/` and `deprecated/` are ignored by the manifest, so you can park work in
 the repo without shipping it.

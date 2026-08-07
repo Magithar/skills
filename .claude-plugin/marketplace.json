@@ -1,14 +1,24 @@
 {
   "name": "magithar",
-  "owner": { "name": "Magithar", "url": "https://github.com/Magithar" },
-  "description": "Magithar's agent skills, as an installable Claude Code plugin.",
+  "owner": {
+    "name": "Magithar",
+    "url": "https://github.com/Magithar"
+  },
+  "description": "Magithar's agent skills, installable as Claude Code plugins.",
   "plugins": [
     {
-      "name": "magithar-skills",
-      "source": "./",
-      "description": "Agent skills for capability discovery, engineering and productivity.",
+      "name": "skillmama",
+      "source": {
+        "source": "github",
+        "repo": "Magithar/SKILLmama"
+      },
+      "description": "AI-Native Capability Discovery Engine. Finds, scores and ranks the best libraries, SDKs and tools for your stack.",
       "category": "engineering",
-      "keywords": ["skills", "agent-skills", "engineering", "productivity"]
+      "keywords": [
+        "capability-discovery",
+        "library-selection",
+        "security-gate"
+      ]
     }
   ]
 }

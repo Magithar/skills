@@ -13,6 +13,8 @@ import { fileURLToPath } from "url";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const MANIFEST = join(ROOT, ".claude-plugin", "plugin.json");
+const MARKETPLACE = join(ROOT, ".claude-plugin", "marketplace.json");
+const LOCAL_PLUGIN = "magithar-skills";
 const SKILLS_DIR = join(ROOT, "skills");
 
 // A skill is any directory containing a SKILL.md. Categories are just folders;
@@ -65,3 +67,28 @@ manifest.skills = found;
 writeFileSync(MANIFEST, JSON.stringify(manifest, null, 2) + "\n");
 console.log(`plugin.json updated: ${found.length} skill(s)`);
 for (const p of found) console.log("  " + p);
+
+syncMarketplace(found.length);
+
+// The local plugin is only listed in the marketplace once it actually contains
+// a skill. Publishing an entry that installs to nothing is worse than not
+// listing it: users get a plugin that appears to work and does nothing.
+function syncMarketplace(skillCount) {
+  const mp = JSON.parse(readFileSync(MARKETPLACE, "utf-8"));
+  const has = mp.plugins.some((p) => p.name === LOCAL_PLUGIN);
+  if (skillCount > 0 && !has) {
+    mp.plugins.push({
+      name: LOCAL_PLUGIN,
+      source: "./",
+      description: manifest.description,
+      category: "engineering",
+      keywords: manifest.keywords || [],
+    });
+    writeFileSync(MARKETPLACE, JSON.stringify(mp, null, 2) + "\n");
+    console.log(`marketplace.json: listed "${LOCAL_PLUGIN}" (now has ${skillCount} skill(s))`);
+  } else if (skillCount === 0 && has) {
+    mp.plugins = mp.plugins.filter((p) => p.name !== LOCAL_PLUGIN);
+    writeFileSync(MARKETPLACE, JSON.stringify(mp, null, 2) + "\n");
+    console.log(`marketplace.json: unlisted "${LOCAL_PLUGIN}" (0 skills — nothing to install)`);
+  }
+}
