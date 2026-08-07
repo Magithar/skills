@@ -2,10 +2,38 @@
   "name": "skill-land",
   "version": "0.1.0",
   "description": "Install an agent skill to the directory the agent actually reads, then verify it landed. Exits non-zero if it didn't.",
+  "keywords": [
+    "agent-skills",
+    "claude-code",
+    "codex",
+    "antigravity",
+    "cursor",
+    "skills",
+    "install",
+    "verify"
+  ],
+  "homepage": "https://github.com/Magithar/skills/tree/main/tools/skill-land",
+  "bugs": {
+    "url": "https://github.com/Magithar/skills/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Magithar/skills.git",
+    "directory": "tools/skill-land"
+  },
+  "author": "Magithar",
+  "license": "MIT",
   "type": "module",
-  "bin": { "skill-land": "./skill-land.mjs" },
-  "files": ["skill-land.mjs", "agents.json", "README.md", "LICENSE"],
-  "engines": { "node": ">=18" },
-  "keywords": ["agent-skills", "claude-code", "codex", "antigravity", "cursor", "skills", "install", "verify"],
-  "license": "MIT"
+  "bin": {
+    "skill-land": "./skill-land.mjs"
+  },
+  "files": [
+    "skill-land.mjs",
+    "agents.json",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=18"
+  }
 }
