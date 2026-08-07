@@ -141,6 +141,57 @@ function parseFrontmatter(text) {
 
 // ---------------------------------------------------------------- security
 
+// A skill is instructions an agent executes with full permissions, so the one
+// check worth always running is showing what is actually in the file.
+//
+// This is disclosure, not a verdict: it counts and quotes, it never scores.
+// That distinction is the point. A built-in pattern-matcher that printed
+// "SAFE" would be worse than nothing, and we measured why: SkillSpector's
+// static mode calls 44% of known-good skills DO_NOT_INSTALL. Counting is
+// honest at any false-positive rate because it makes no claim.
+//
+// SkillSpector, when installed, does the judging. This does the showing, and
+// it has no dependencies so it runs for everyone.
+// Each entry reduces its matches to a short, stable label (the binary, the
+// host) rather than quoting raw text, so the output stays readable and does
+// not leak half-sentences from prose that happens to contain a keyword.
+const DISCLOSE = [
+  {
+    label: "shell commands",
+    re: /\b(sudo|rm|mv|cp|chmod|chown|curl|wget|git|npm|npx|pip|uv|docker|kubectl|ssh|scp|eval|bash|sh)\s+(?:-{1,2}[\w-]+|[\w./~$@-]+)/g,
+    key: (m) => m[1],
+  },
+  {
+    label: "network hosts",
+    re: /https?:\/\/([^\s/"'`)>\]]+)/g,
+    key: (m) => m[1],
+  },
+  {
+    label: "credential refs",
+    re: /(~\/\.ssh|~\/\.aws|\.env(?:\.[a-z]+)?|id_rsa|[A-Z][A-Z_]*(?:API_KEY|SECRET|TOKEN|PASSWORD)[A-Z_]*)/g,
+    key: (m) => m[1],
+  },
+  {
+    label: "destructive commands",
+    re: /(rm\s+-[rf]{1,2}|git\s+push\s+--force|push\s+-f\b|DROP\s+(?:TABLE|DATABASE)|TRUNCATE)/gi,
+    key: (m) => m[1].replace(/\s+/g, " ").toLowerCase(),
+  },
+];
+
+function disclose(text) {
+  const out = [];
+  for (const { label, re, key } of DISCLOSE) {
+    const keys = [...text.matchAll(re)].map(key).filter(Boolean);
+    if (!keys.length) continue;
+    // Rank by frequency so the most-used thing is what you see first.
+    const freq = new Map();
+    for (const k of keys) freq.set(k, (freq.get(k) || 0) + 1);
+    const top = [...freq.entries()].sort((a, b) => b[1] - a[1]).map(([k]) => k);
+    out.push({ label, count: keys.length, distinct: top.length, sample: top.slice(0, 4) });
+  }
+  return out;
+}
+
 // Skills run with full agent permissions, and this tool writes a file fetched
 // from a URL into a directory an agent auto-loads. So scan before writing.
 //
@@ -304,6 +355,7 @@ try {
 
   // Scan before any write. A blocked skill must never reach disk.
   const scan = skipSecurity ? { status: "skipped" } : securityScan(skillPath);
+  const contents = disclose(rawBody.toString("utf-8"));
   const findings = (scan.top || []).length
     ? "\n" + scan.top.map((t) => `           ${t}`).join("\n") : "";
   // Reported, never applied. See securityScan().
@@ -323,7 +375,19 @@ try {
   console.log(`\n  source   ${src.label}`);
   console.log(`  skill    ${fm.name || "(no frontmatter name)"}  [${rawBody.length} bytes, sha ${expected.hash.slice(0,12)}]`);
   console.log(`  from     ${skillPath.replace(root, ".")}`);
-  if (!verifyOnly) console.log(SCAN_LINE[scan.status]());
+  if (!verifyOnly) {
+    // Always shown, with or without a scanner. Counts and quotes only.
+    if (contents.length) {
+      console.log("  contains");
+      for (const c of contents) {
+        const more = c.distinct > c.sample.length ? `, +${c.distinct - c.sample.length} more` : "";
+        console.log(`    ${String(c.count).padStart(3)}  ${c.label.padEnd(21)} ${c.sample.join(", ")}${more}`.slice(0, 100));
+      }
+    } else {
+      console.log("  contains  no shell commands, network calls or credential references");
+    }
+    console.log(SCAN_LINE[scan.status]());
+  }
   console.log("");
 
   // Refuse to write a skill the scanner flagged. --force is an explicit,

@@ -112,6 +112,32 @@ directory an agent auto-loads. So it scans before writing, delegating to
 uv tool install git+https://github.com/NVIDIA/skillspector.git
 ```
 
+### What always runs: disclosure
+
+A skill is instructions an agent executes with full permissions, so before writing anything
+`skill-land` shows what is actually in the file. No dependencies, so it runs for everyone:
+
+```
+contains
+    3  shell commands        curl, rm, git
+    1  network hosts         attacker.example.com
+    5  credential refs       AWS_SECRET_ACCESS_KEY, ~/.ssh, id_rsa, ~/.aws
+    2  destructive commands  rm -rf, git push --force
+```
+
+A skill with nothing notable says so:
+
+```
+contains  no shell commands, network calls or credential references
+```
+
+**This is disclosure, not a verdict.** It counts and names; it never scores and never prints
+"safe". That distinction is deliberate. A built-in matcher that declared a skill safe would be
+worse than no check, and the numbers below show why. Counting stays honest at any false-positive
+rate because it makes no claim.
+
+### What runs when available: SkillSpector
+
 **It reports, it does not block.** That is a measured decision, not a shortcut.
 
 Scanning 18 known-good skills already installed on a dev machine (2026-08-08, SkillSpector
