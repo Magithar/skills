@@ -123,10 +123,16 @@ v2.8.1, `--no-llm`):
 | CAUTION | 9 |
 | **DO_NOT_INSTALL** | **8 (44%)** |
 
-SKILLmama's own `SKILL.md` scores **100 / CRITICAL / DO_NOT_INSTALL**, because its Phase 3.7
-DISCARD rules contain the literal phrase *"instructions to bypass safety checks"* and the pattern
-matcher reads that as an anti-refusal attack. A security checklist gets flagged for describing
-the attacks it checks for.
+The failure mode is worth understanding, because it is not random. A skill that *documents* attack
+patterns gets flagged for *containing* them: the static matcher has no negation handling, so a rule
+saying "reject skills that bypass safety checks" reads identically to a skill saying "bypass safety
+checks".
+
+[SKILLmama](https://github.com/Magithar/SKILLmama) was a worked example. Its security checklist
+scored `CRITICAL` until four DISCARD criteria were reworded to say the same thing in different
+words; it now scores `7 / LOW / SAFE`. Its behaviour never changed, only its vocabulary. Adding an
+explicit user-consent section was also tested and made the score **worse**, because describing a
+safeguard trips the same patterns as describing the danger.
 
 A gate that blocks 44% of legitimate skills does not make anyone safer; it teaches people to pass
 the override flag reflexively. So findings are surfaced with file and line, and the decision stays
