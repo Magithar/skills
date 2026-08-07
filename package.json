@@ -1,0 +1,11 @@
+{
+  "name": "magithar-skills",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "sync": "node scripts/sync-plugin.mjs",
+    "check": "node scripts/sync-plugin.mjs --check"
+  },
+  "license": "MIT"
+}

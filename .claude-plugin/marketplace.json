@@ -1,0 +1,14 @@
+{
+  "name": "magithar",
+  "owner": { "name": "Magithar", "url": "https://github.com/Magithar" },
+  "description": "Magithar's agent skills, as an installable Claude Code plugin.",
+  "plugins": [
+    {
+      "name": "magithar-skills",
+      "source": "./",
+      "description": "Agent skills for capability discovery, engineering and productivity.",
+      "category": "engineering",
+      "keywords": ["skills", "agent-skills", "engineering", "productivity"]
+    }
+  ]
+}

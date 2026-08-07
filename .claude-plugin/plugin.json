@@ -1,0 +1,18 @@
+{
+  "name": "magithar-skills",
+  "version": "0.1.0",
+  "description": "Magithar's agent skills. Each skill is a plain SKILL.md and runs on Claude Code, Codex and Antigravity.",
+  "author": {
+    "name": "Magithar",
+    "url": "https://github.com/Magithar"
+  },
+  "repository": "https://github.com/Magithar/skills",
+  "license": "MIT",
+  "keywords": [
+    "skills",
+    "agent-skills",
+    "engineering",
+    "productivity"
+  ],
+  "skills": []
+}

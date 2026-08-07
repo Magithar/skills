@@ -1,0 +1,87 @@
+{
+  "_comment": "Per-agent skill directories. Verified 2026-08-07 against skills@1.5.18. Agents marked broken:true are ones where `npx skills add -a <agent> -g` reports success but writes to ~/.agents/skills instead of the directory below, because isUniversalAgent() (cli.mjs:1678) classifies any agent whose PROJECT dir is .agents/skills as universal and discards its globalSkillsDir.",
+  "agents": {
+    "claude-code": {
+      "display": "Claude Code",
+      "global": "~/.claude/skills",
+      "project": ".claude/skills",
+      "file": "SKILL.md",
+      "restart": false,
+      "broken": false
+    },
+    "codex": {
+      "display": "OpenAI Codex",
+      "global": "~/.codex/skills",
+      "project": ".agents/skills",
+      "file": "SKILL.md",
+      "restart": false,
+      "broken": true
+    },
+    "antigravity": {
+      "_paths": "Global dir is ~/.gemini/config/skills for ALL Antigravity surfaces (2.0, IDE, CLI); they consolidated config across the three clients. Sources: vercel-labs/skills#1470, where the agy binary's own docs give global root ~/.gemini/config/ with skills at skills/<name>/, and no ~/.gemini/antigravity-cli/skills string exists in the binary. Project dir <workspace>/.agents/skills confirmed by behavior 2026-08-08. The other two are written as fallbacks only, pending PR #1483 landing upstream.",
+      "display": "Antigravity",
+      "global": "~/.gemini/config/skills",
+      "alsoWrite": ["~/.gemini/antigravity/skills", "~/.gemini/skills"],
+      "project": ".agents/skills",
+      "file": "SKILL.md",
+      "restart": true,
+      "broken": true
+    },
+    "antigravity-cli": {
+      "display": "Antigravity CLI",
+      "global": "~/.gemini/antigravity-cli/skills",
+      "project": ".agents/skills",
+      "file": "SKILL.md",
+      "restart": true,
+      "broken": true
+    },
+    "gemini-cli": {
+      "display": "Gemini CLI",
+      "global": "~/.gemini/skills",
+      "project": ".agents/skills",
+      "file": "SKILL.md",
+      "restart": false,
+      "broken": true
+    },
+    "cursor": {
+      "display": "Cursor",
+      "global": "~/.cursor/skills",
+      "project": ".agents/skills",
+      "file": "SKILL.md",
+      "restart": false,
+      "broken": true
+    },
+    "github-copilot": {
+      "display": "GitHub Copilot",
+      "global": "~/.copilot/skills",
+      "project": ".agents/skills",
+      "file": "SKILL.md",
+      "restart": false,
+      "broken": true
+    },
+    "opencode": {
+      "display": "opencode",
+      "global": "~/.config/opencode/skills",
+      "project": ".agents/skills",
+      "file": "SKILL.md",
+      "restart": false,
+      "broken": true
+    },
+    "firebender": {
+      "display": "Firebender",
+      "global": "~/.firebender/skills",
+      "project": ".agents/skills",
+      "file": "SKILL.md",
+      "restart": false,
+      "broken": true
+    },
+    "amp": {
+      "display": "Amp",
+      "global": "~/.config/agents/skills",
+      "project": ".agents/skills",
+      "file": "SKILL.md",
+      "restart": false,
+      "broken": true
+    }
+  }
+}
