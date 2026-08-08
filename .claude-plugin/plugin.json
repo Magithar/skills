@@ -1,6 +1,6 @@
 {
   "name": "magithar-skills",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Magithar's agent skills. Each skill is a plain SKILL.md and runs on Claude Code, Codex and Antigravity.",
   "author": {
     "name": "Magithar",

@@ -167,6 +167,8 @@ values. A report that copies live data into itself has caused the problem it was
 - [SKILLmama](https://github.com/Magithar/SKILLmama), capability discovery engine. Kept in its own
   repo because its published articles and skills.sh listing point there.
 - [skill-land](https://www.npmjs.com/package/skill-land) on npm.
+- [CHANGELOG.md](CHANGELOG.md) for skills and repo tooling. `skill-land` versions separately and has
+  [its own](tools/skill-land/CHANGELOG.md).
 
 ## License
 
