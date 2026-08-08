@@ -13,7 +13,7 @@ description: Audits a third-party package for data egress — what it sends off 
 - A dependency was just recommended and the user wants it checked before adopting
 
 **Do NOT activate for:**
-- Vulnerability scanning (CVEs, injection, hardcoded secrets) — that is a security review, a different job
+- Vulnerability scanning (CVEs, injection flaws, unsafe defaults) — that is a security review, a different job
 - Regulatory compliance (GDPR, CCPA, HIPAA) — that asks whether *your* handling is lawful, not what a dependency emits
 - Threat modeling your own architecture (STRIDE, LINDDUN)
 - Picking between candidate libraries on quality grounds — that is capability discovery
@@ -33,20 +33,20 @@ The inverse matters just as much: **"I found no egress" is a statement about you
 package.** Report coverage honestly (see Phase 6). Obfuscated, minified, or native code is a gap, not a
 clean bill of health.
 
-## The other rule: report shapes, never secrets
+## The output contract: locations and field names only
 
-You will be reading code that handles tokens, keys and environment variables, and you may be pointed at a
-real project with real ones. **Quote the code that builds a payload; never a captured value.**
+A finding is a location plus the name and class of what goes out. **Data never appears in a report.**
 
-- Name the field and its class — `Authorization: <bearer token>`, `env.STRIPE_SECRET_KEY (value redacted)`
-- Never reproduce the value of anything named like a credential — `*_KEY`, `*_TOKEN`, `*_SECRET`,
-  `PASSWORD`, `AUTH`, `CREDENTIAL`, `SESSION`, `COOKIE` — or any high-entropy literal that looks like one
-- Never dump `process.env`, a `.env` file, or a captured request body wholesale. Summarize what a payload
-  *would* contain by reading the code that assembles it
-- If you run the package to observe traffic, redact before reporting, and never paste raw captures
+- Cite `file:line` and the name of the field being sent — an `Authorization` header, a `userId`, a
+  `machineId` — and describe its class, not its contents
+- Describe what a request would carry by reading the code that assembles it. Do not copy a runtime value
+  into your output
+- Do not print the contents of a process environment, a configuration file, or a captured request
+- If you execute the package to observe its traffic, report the endpoint and the field names, then
+  discard the capture
 
-A finding is `file:line` plus the shape of what goes out. It never needs the secret itself, and a report
-containing one has turned an audit into a leak.
+This is not a formatting preference. These reports get pasted into issues and shared with other people.
+An audit that copies live data into its own output has caused the exact thing it was asked to detect.
 
 ---
 
@@ -72,11 +72,11 @@ If the user named a package that does not exist or is ambiguous across ecosystem
 Read what the package *claims*, before you look at what it does. Doing this first gives you something to
 compare against; doing it after biases you toward confirming whatever you found.
 
-Look for, and quote:
+Look for, and record:
 - README sections on telemetry, analytics, privacy, or "data collection"
 - A `PRIVACY.md`, `privacy-policy`, or linked policy URL
-- Documented opt-out: environment variables (`DO_NOT_TRACK`, `*_TELEMETRY_DISABLED`, `*_ANALYTICS=0`),
-  config flags, constructor options
+- Documented opt-out switches (`DO_NOT_TRACK`, `*_TELEMETRY_DISABLED`, `*_ANALYTICS=0`), config flags,
+  constructor options
 - Any first-run notice the package prints
 
 Record for each claim: **what it says it sends, and what it says you can disable.** If the package
@@ -122,7 +122,7 @@ For each call site, determine and record:
 | Location | `file:line` |
 | Endpoint | literal URL, or how it is constructed if dynamic |
 | Trigger | import time, first use, every call, on error, on a timer, on user action |
-| Payload | which fields go into the body or query string, by name and class, values redacted |
+| Payload | which fields go into the body or query string, by name and class |
 | Conditional | is it gated behind a flag, env var, opt-in, or DNT check |
 
 **Import-time and error-path calls deserve special attention.** Egress that fires on module import
@@ -139,14 +139,14 @@ For every call found, classify what goes out. Escalating sensitivity:
 2. **Environment fingerprint** — OS, arch, runtime version, CI detection, locale, timezone, screen size
 3. **Stable identifiers** — machine ID, MAC-derived hash, hostname, username, persisted UUID
 4. **Project metadata** — package name, dependency list, repo URL, git remote, branch, file paths
-5. **User-attributable data** — email, account ID, IP as an identifier, session tokens
+5. **User-attributable data** — email, account ID, IP as an identifier, session identifiers
 6. **Content** — source code, file contents, prompts, request bodies, stack traces with locals,
-   environment variables
+   the process environment
 
 **Levels 4-6 are the ones that surprise people.** A stack trace with locals, or a file path containing a
 username or a client name, carries far more than the package's docs typically imply. Do not flatten this
-into "sends telemetry" — say which level, and cite the code that assembles the payload. Cite the
-assembling code, not a captured payload; values stay redacted per the rule above.
+into "sends telemetry" — say which level, and cite the code that assembles the request, per the output
+contract above.
 
 Note whether anything is sent to a **third party** rather than the maintainer's own domain. A package
 that pipes to a commercial analytics vendor has a different blast radius than one hitting its own API.
@@ -216,8 +216,8 @@ Then, in this order:
    never mentions; things it claims to send that you found no code for.
 3. **Turning it off** — the name of the env var, flag, or config that disables it, and whether you
    verified it actually gates the call. An opt-out that the code ignores is a critical finding, not a
-   mitigation. Names of switches, never values of secrets.
-4. **Coverage** — Phase 6, verbatim. Not a footnote.
+   mitigation. Name the switch; do not include what it is set to.
+4. **Coverage** — Phase 6, in full. Not a footnote.
 5. **Recommendation** — one paragraph. Adopt / adopt with this config / do not adopt / needs a human. Say
    which, and why.
 
