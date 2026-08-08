@@ -19,6 +19,7 @@ Plugins available:
 | Plugin | What it is | Hosted in |
 |---|---|---|
 | `skillmama` | capability discovery: finds, scores and ranks libraries for your stack | [Magithar/SKILLmama](https://github.com/Magithar/SKILLmama) |
+| `magithar-skills` | the skills under `skills/` in this repo, currently [`dep-egress`](skills/engineering/dep-egress/SKILL.md) | this repo |
 
 A marketplace can list plugins that live in other repos, so SKILLmama keeps its own repository,
 issues and release history while still being installable from here. Skills added directly to this
@@ -59,7 +60,8 @@ skills/
 .claude-plugin/
   marketplace.json                makes this repo an installable marketplace
   plugin.json                     lists every published skill
-scripts/sync-plugin.mjs           regenerates plugin.json from disk
+.claude/skills/<name>/SKILL.md    symlink, so the skills work inside this repo too
+scripts/sync-plugin.mjs           regenerates plugin.json and the symlinks from disk
 tools/skill-land/               CLI: install a skill, then prove it landed
 ```
 
@@ -85,11 +87,18 @@ Source and docs: [tools/skill-land/](tools/skill-land/README.md).
 1. `mkdir -p skills/<category>/<name>` and write `SKILL.md` with `name:` and `description:`
    frontmatter.
 2. `node scripts/sync-plugin.mjs`
-3. Commit both the skill and the updated `plugin.json`.
+3. Commit the skill, the updated `plugin.json`, and the new `.claude/skills` symlink.
 
 `plugin.json` is generated, never hand-edited. A manifest maintained by hand drifts from the
 filesystem silently, which is the same class of bug as keeping multiple copies of one file. CI
 runs `sync-plugin.mjs --check` and fails if they disagree.
+
+The script also maintains `.claude/skills/<name>/SKILL.md` as a symlink to each skill, so the
+skills in this repo are usable *while working on this repo* — Claude Code only scans
+`.claude/skills`, not `skills/<category>`. It creates, repairs and removes those links to match
+disk, and refuses to overwrite anything under `.claude/skills` that isn't a symlink. Windows
+contributors need `core.symlinks=true`; without it the links fail to create, which costs a local
+slash command and nothing else.
 
 The script also adds `magithar-skills` to `marketplace.json` on the first skill, and removes it
 again if the last one goes. Publishing a plugin entry that installs nothing is worse than not

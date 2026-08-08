@@ -19,6 +19,18 @@
         "library-selection",
         "security-gate"
       ]
+    },
+    {
+      "name": "magithar-skills",
+      "source": "./",
+      "description": "Magithar's agent skills. Each skill is a plain SKILL.md and runs on Claude Code, Codex and Antigravity.",
+      "category": "engineering",
+      "keywords": [
+        "skills",
+        "agent-skills",
+        "engineering",
+        "productivity"
+      ]
     }
   ]
 }
