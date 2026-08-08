@@ -33,6 +33,21 @@ The inverse matters just as much: **"I found no egress" is a statement about you
 package.** Report coverage honestly (see Phase 6). Obfuscated, minified, or native code is a gap, not a
 clean bill of health.
 
+## The other rule: report shapes, never secrets
+
+You will be reading code that handles tokens, keys and environment variables, and you may be pointed at a
+real project with real ones. **Quote the code that builds a payload; never a captured value.**
+
+- Name the field and its class — `Authorization: <bearer token>`, `env.STRIPE_SECRET_KEY (value redacted)`
+- Never reproduce the value of anything named like a credential — `*_KEY`, `*_TOKEN`, `*_SECRET`,
+  `PASSWORD`, `AUTH`, `CREDENTIAL`, `SESSION`, `COOKIE` — or any high-entropy literal that looks like one
+- Never dump `process.env`, a `.env` file, or a captured request body wholesale. Summarize what a payload
+  *would* contain by reading the code that assembles it
+- If you run the package to observe traffic, redact before reporting, and never paste raw captures
+
+A finding is `file:line` plus the shape of what goes out. It never needs the secret itself, and a report
+containing one has turned an audit into a leak.
+
 ---
 
 ## Phase 0 — Resolve the target
@@ -107,7 +122,7 @@ For each call site, determine and record:
 | Location | `file:line` |
 | Endpoint | literal URL, or how it is constructed if dynamic |
 | Trigger | import time, first use, every call, on error, on a timer, on user action |
-| Payload | what is actually put in the body or query string |
+| Payload | which fields go into the body or query string, by name and class, values redacted |
 | Conditional | is it gated behind a flag, env var, opt-in, or DNT check |
 
 **Import-time and error-path calls deserve special attention.** Egress that fires on module import
@@ -130,7 +145,8 @@ For every call found, classify what goes out. Escalating sensitivity:
 
 **Levels 4-6 are the ones that surprise people.** A stack trace with locals, or a file path containing a
 username or a client name, carries far more than the package's docs typically imply. Do not flatten this
-into "sends telemetry" — say which level, and quote the payload construction.
+into "sends telemetry" — say which level, and cite the code that assembles the payload. Cite the
+assembling code, not a captured payload; values stay redacted per the rule above.
 
 Note whether anything is sent to a **third party** rather than the maintainer's own domain. A package
 that pipes to a commercial analytics vendor has a different blast radius than one hitting its own API.
@@ -198,8 +214,9 @@ Then, in this order:
    whether it is disclosed. Most severe first.
 2. **Disclosed vs. actual** — an explicit diff. Things it says it sends and does; things it sends and
    never mentions; things it claims to send that you found no code for.
-3. **Turning it off** — the exact env var, flag, or config, quoted from source, with whether you verified
-   it actually gates the call. An opt-out that the code ignores is a critical finding, not a mitigation.
+3. **Turning it off** — the name of the env var, flag, or config that disables it, and whether you
+   verified it actually gates the call. An opt-out that the code ignores is a critical finding, not a
+   mitigation. Names of switches, never values of secrets.
 4. **Coverage** — Phase 6, verbatim. Not a footnote.
 5. **Recommendation** — one paragraph. Adopt / adopt with this config / do not adopt / needs a human. Say
    which, and why.
