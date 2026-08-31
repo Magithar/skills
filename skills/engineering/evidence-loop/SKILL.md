@@ -39,10 +39,10 @@ precondition already holds.
 
    | Command | What it does |
    |---|---|
-   | `verify <id> <path>` | Mechanically checks a raw artifact (hash, structure, git baseline). Never call this before the artifact actually exists. |
+   | `verify <id> <path>` | Mechanically checks a raw artifact (hash, structure, git baseline). `path` may be a single file or a directory of related files (an evidence bundle) — the whole set is hashed together. Never call this before the artifact actually exists. |
    | `result <id> --classification --mechanism --hypothesis-status --observation --interpretation` | Records a result from verified evidence. `classification` is `CONCLUSIVE`/`INCONCLUSIVE`/`DEGENERATE`; `mechanism` is `EXERCISED`/`UNEXERCISED`; `hypothesis-status` is `SUPPORTED`/`REFUTED`/`UNTESTED`. |
    | `review-result <id> --reviewer <name> [--self]` | Records that the result was reviewed. Pass `--self` only when no independent reviewer is available and you are reviewing your own recorded result — see below. |
-   | `commit-artifact <id>` | Commits the raw artifact to git, separately from interpretation. Fails if the artifact changed since verification — that means it's new evidence, not this one. |
+   | `commit-artifact <id> [--local]` | Commits the raw artifact (or bundle) to git, separately from interpretation. Fails if it changed since verification — that means it's new evidence, not this one. Pass `--local` to pin the artifact's hash for integrity without writing it into the subject repository's git history — use when the raw evidence itself (command output, environment detail, etc.) shouldn't become part of that repo's public/shared history. |
    | `close <id> --status --established --not-established --remaining-questions` | Records closure. `status` is `CONFIRMED`/`REFUTED`/`INCONCLUSIVE`; it should follow the recorded result the same way `hypothesis_status` does — `SUPPORTED`/`CONCLUSIVE` results close `CONFIRMED`, `REFUTED` results close `REFUTED`, and `DEGENERATE`/`UNTESTED` or otherwise inconclusive results close `INCONCLUSIVE`. |
    | `review-closure <id> --reviewer <name> [--self]` | Records that closure was reviewed. Same `--self` rule as `review-result`. |
    | `gate <id>` | Confirms every prior gate condition and opens the hypothesis gate. Only this command may end an experiment's evidence loop. |

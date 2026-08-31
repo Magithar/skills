@@ -114,7 +114,11 @@ pub struct ResultInfo {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ArtifactInfo {
     pub committed_at: DateTime<Utc>,
-    pub commit_sha: String,
+    /// None means the artifact was pinned locally (--local) rather than
+    /// committed into the subject repository's git history -- its integrity
+    /// still rests on raw.hash, just not on a commit anyone else can see.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub commit_sha: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

@@ -51,3 +51,36 @@ pub fn hash_file(path: &Path) -> anyhow::Result<String> {
 pub fn read_bytes(path: &Path) -> anyhow::Result<Vec<u8>> {
     fs::read(path).map_err(|e| anyhow::anyhow!("cannot read {}: {e}", path.display()))
 }
+
+fn collect_files_sorted(dir: &Path) -> anyhow::Result<Vec<std::path::PathBuf>> {
+    let mut files = Vec::new();
+    let mut entries: Vec<_> = fs::read_dir(dir)?.collect::<Result<_, _>>()?;
+    entries.sort_by_key(|e| e.file_name());
+    for entry in entries {
+        let path = entry.path();
+        if path.is_dir() {
+            files.extend(collect_files_sorted(&path)?);
+        } else {
+            files.push(path);
+        }
+    }
+    Ok(files)
+}
+
+/// A raw artifact that is a set of related files (an evidence bundle) rather
+/// than one file. Combines each file's own hash with its path relative to
+/// the bundle root, in sorted order, so the combined hash changes if any
+/// file's content, name, or set membership changes. Returns the combined
+/// hash and the file count.
+pub fn hash_dir(dir: &Path) -> anyhow::Result<(String, u64)> {
+    let files = collect_files_sorted(dir)?;
+    let mut hasher = Sha256::new();
+    for f in &files {
+        let rel = f.strip_prefix(dir).unwrap_or(f);
+        hasher.update(rel.to_string_lossy().as_bytes());
+        hasher.update(b":");
+        hasher.update(hash_file(f)?.as_bytes());
+        hasher.update(b"\n");
+    }
+    Ok((format!("sha256:{:x}", hasher.finalize()), files.len() as u64))
+}

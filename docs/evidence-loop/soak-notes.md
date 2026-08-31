@@ -23,8 +23,14 @@ Hypothesis: an installer's exit status alone is insufficient to establish that
 
 ## Friction
 
-### S001 — `verify` accepts exactly one artifact path
+### S001 — `verify` accepts exactly one artifact path [FIXED]
 
+- Fixed: `verify`/`commit-artifact` now accept a directory as an evidence
+  bundle -- every file hashed (sorted, combined into one hash), file count
+  recorded as `components`/`terminus: bundle`, whole directory committed
+  together. Single-file behavior is unchanged. Note: fixed off one E001 data
+  point rather than a confirmed-recurring pattern, per the "fix all"
+  instruction that overrode the earlier "wait for more evidence" stance.
 - Experiment: E001
 - State: RAW_PENDING
 - Bucket: Friction
@@ -350,7 +356,7 @@ most tempting point (one step from a foregone-conclusion finish).
 
 | # | Finding | Recurrences | Current read |
 |---|---|---|---|
-| S001 | `verify` takes one path; multi-artifact evidence needs manual bundling | E001 | Open — real, but only observed once |
+| S001 | `verify` takes one path; multi-artifact evidence needs manual bundling | E001 | **Fixed** — directory/bundle support |
 | S002/S006 | components/rows metric misleading only when evidence is force-fit into JSON; honest ("unstructured") when left alone | E001, E002, E003 (all three raw artifacts were non-tabular; metric was ignored/harmless in E002 and E003 since evidence stayed in its natural shape) | Refined, not urgent — the fix may be "don't force JSON," not a tool change |
 | S003 | agent chaining impulse | E001 (near-miss) | Superseded by S010–S012 — no longer read as a live defect |
 | S004/S009 | no way to represent honest solo review vs. independent review | E001, E002, **E003 (independently reconverged on the same convention without being told)** | **Confirmed, generalizes, three-for-three** — strongest capability gap found |
@@ -370,8 +376,22 @@ most tempting point (one step from a foregone-conclusion finish).
 - Something at the evidence-bundling layer for `verify` (S001), though only observed once — worth a fourth, deliberately messier soak before treating as confirmed.
 - Nothing urgent on doctor/history.jsonl/locking — none of the three soaks hit a situation where their absence caused a problem.
 
-### S014 — evidence publication boundary is undecided
+### S014 — evidence publication boundary is undecided [FIXED]
 
+- Fixed: `commit-artifact --local` pins the artifact's hash for integrity
+  (satisfies `ARTIFACT_COMMITTED`) without writing it into the subject
+  repository's git history; `artifact.commit_sha` is absent instead of a
+  SHA, and the board renders this distinctly ("LOCAL ONLY -- not written to
+  this repository's git history"), never as if a real commit happened.
+  Default behavior (commit to git) is unchanged -- this is an explicit
+  opt-out, not a new default, and doesn't touch protocol.md's
+  "Git stores historical truth" pillar for any experiment that keeps using
+  the default. Chosen over the other 3 candidate approaches (sanitize/
+  separate evidence repo/etc.) as the smallest change that actually solves
+  the concrete problem raised: nothing currently stops committing raw
+  experiment noise into a repo other people track, and this gives an
+  explicit, visible way to not do that, per experiment, without redesigning
+  where evidence lives globally.
 - Experiment: E001-E004 (retroactive)
 - Bucket: Protocol ambiguity / open design question
 - Observation: `commit-artifact` commits raw evidence directly into the

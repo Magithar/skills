@@ -58,7 +58,7 @@ result:
   review_notes: "Spot-checked the observation against the raw artifact; no drift."
 artifact:
   committed_at: 2026-08-31T00:15:00Z
-  commit_sha: abc1234
+  commit_sha: abc1234   # absent/null if committed with --local
 closure:
   status: INCONCLUSIVE
   recorded_at: 2026-08-31T00:20:00Z
@@ -94,10 +94,41 @@ review_kind:          INDEPENDENT | SELF
   passed explicitly at record time. The override is always a deliberate,
   visible CLI argument — never something the record ends up with by editing
   the sidecar directly, and never a default.
-- Once `artifact.commit_sha` is set, a `verify` run that computes a
-  different `raw.hash` at `raw.path` fails validation instead of updating
-  the record. The artifact is now historical; a changed file is new
-  evidence and belongs to a new experiment.
+- Once `artifact` is set (whether `commit_sha` is present or the artifact
+  was pinned with `--local`), a `verify` run that computes a different
+  `raw.hash` at `raw.path` fails validation instead of updating the record.
+  The artifact is now historical; a changed file is new evidence and
+  belongs to a new experiment.
+
+## Evidence bundles
+
+`raw.path` may name a directory instead of a single file, for evidence that
+naturally spans several related raw files. `verify` hashes every file under
+it (sorted by relative path, each file's own hash combined with its path)
+into one `raw.hash`, so the combined hash changes if any file's content,
+name, or set membership changes -- the same immutability guarantee a single
+file gets. `raw.components` becomes the file count and `raw.terminus`
+becomes `bundle`; `raw.rows` is unused (`0`) since a bundle has no row
+concept. `commit-artifact` stages and commits the whole directory in one
+commit. Use a single file when the evidence naturally is one file --
+bundling only when the raw evidence itself is multiple genuinely related
+files (e.g. an installer's output plus a separate verification pass'
+output), not as a place to stash unrelated files together.
+
+## Local-only artifacts
+
+`commit-artifact --local` satisfies the `ARTIFACT_COMMITTED` transition by
+pinning the artifact's hash for integrity without writing it into the
+subject repository's git history -- `artifact.commit_sha` is left absent
+instead of holding a SHA. This exists because the project being
+experimented on and the place experiment evidence should live are not
+always the same thing: raw command output, environment details, or other
+experiment-specific material may not belong in a repository other people
+track for unrelated reasons. `--local` is an explicit, visible choice (the
+board renders it distinctly, never as if an independent git commit
+happened) -- it does not change the default, which is still to commit,
+consistent with the historical-evidence invariant for any experiment where
+the subject repository is genuinely where the evidence belongs.
 
 ## Result → closure status
 

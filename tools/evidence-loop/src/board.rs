@@ -61,9 +61,20 @@ fn render_owned(record: &ExperimentRecord) -> String {
             out.push_str(&format!("- Artifact: `{}`\n", raw.path));
             out.push_str(&format!("- Baseline: `{}`\n", raw.baseline_commit));
             out.push_str(&format!("- Hash: `{}`\n", raw.hash));
-            out.push_str(&format!("- Components: {}\n", raw.components));
-            out.push_str(&format!("- Rows: {}\n", raw.rows));
+            if raw.terminus == "bundle" {
+                out.push_str(&format!("- Files: {}\n", raw.components));
+            } else {
+                out.push_str(&format!("- Components: {}\n", raw.components));
+                out.push_str(&format!("- Rows: {}\n", raw.rows));
+            }
             out.push_str(&format!("- Terminus: {}\n", raw.terminus));
+            match &record.artifact {
+                Some(a) => match &a.commit_sha {
+                    Some(sha) => out.push_str(&format!("- Committed: `{sha}`\n")),
+                    None => out.push_str("- Committed: LOCAL ONLY -- not written to this repository's git history\n"),
+                },
+                None => {}
+            }
         }
         None => out.push_str("Pending\n"),
     }

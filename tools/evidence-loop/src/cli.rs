@@ -78,6 +78,11 @@ pub enum Commands {
     /// Commit the raw artifact to git, separately from interpretation.
     CommitArtifact {
         experiment: String,
+        /// Pin the artifact's hash for integrity without committing it into
+        /// the subject repository's git history. Use when raw evidence
+        /// shouldn't become part of that repo's public/shared history.
+        #[arg(long)]
+        local: bool,
     },
 
     /// Record experiment closure.

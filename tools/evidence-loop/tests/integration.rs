@@ -324,3 +324,127 @@ fn review_notes_get_their_own_section_not_appended_to_prose() {
     let interp_end = interp_section.find("\n\n").unwrap_or(interp_section.len());
     assert_eq!(&interp_section[..interp_end], "interp-marker");
 }
+
+/// verify/commit-artifact accept a directory of related raw files as one
+/// evidence bundle, hashing the whole set for immutability.
+#[test]
+fn verify_accepts_a_directory_as_an_evidence_bundle() {
+    let dir = setup_project();
+    let root = dir.path();
+    run(root, &["init"]);
+    run(root, &["new", "H6"]);
+
+    let bundle = root.join("evidence/E001/raw");
+    fs::create_dir_all(&bundle).unwrap();
+    fs::write(bundle.join("a.txt"), b"aaa").unwrap();
+    fs::write(bundle.join("b.txt"), b"bbb").unwrap();
+
+    let (ok, out, err) = run(root, &["verify", "E001", "evidence/E001/raw"]);
+    assert!(ok, "verify on a directory failed: {err}");
+    assert!(out.contains("Files: 2"), "expected file count in bundle output:\n{out}");
+    assert!(out.contains("bundle"), "expected terminus=bundle:\n{out}");
+
+    run(
+        root,
+        &[
+            "result", "E001",
+            "--classification", "CONCLUSIVE",
+            "--mechanism", "EXERCISED",
+            "--hypothesis-status", "SUPPORTED",
+            "--observation", "ok",
+            "--interpretation", "ok",
+        ],
+    );
+    run(root, &["review-result", "E001", "--reviewer", "r"]);
+
+    let (ok, out, err) = run(root, &["commit-artifact", "E001"]);
+    assert!(ok, "commit-artifact on a bundle failed: {err}");
+    assert!(out.contains("ARTIFACT_COMMITTED"));
+
+    let git_log = Command::new("git").current_dir(root).args(["show", "--stat", "HEAD"]).output().unwrap();
+    let git_log = String::from_utf8_lossy(&git_log.stdout);
+    assert!(git_log.contains("a.txt") && git_log.contains("b.txt"), "expected both bundle files in the commit:\n{git_log}");
+
+    // Changing any one file in the bundle must be caught, same as a single artifact.
+    let dir2 = setup_project();
+    let root2 = dir2.path();
+    run(root2, &["init"]);
+    run(root2, &["new", "H7"]);
+    let bundle2 = root2.join("evidence/E001/raw");
+    fs::create_dir_all(&bundle2).unwrap();
+    fs::write(bundle2.join("a.txt"), b"aaa").unwrap();
+    run(root2, &["verify", "E001", "evidence/E001/raw"]);
+    run(
+        root2,
+        &[
+            "result", "E001",
+            "--classification", "CONCLUSIVE",
+            "--mechanism", "EXERCISED",
+            "--hypothesis-status", "SUPPORTED",
+            "--observation", "ok",
+            "--interpretation", "ok",
+        ],
+    );
+    run(root2, &["review-result", "E001", "--reviewer", "r"]);
+    fs::write(bundle2.join("a.txt"), b"tampered").unwrap();
+    let (ok, _, err) = run(root2, &["commit-artifact", "E001"]);
+    assert!(!ok, "commit-artifact should reject a tampered bundle file");
+    assert!(err.contains("changed since verification"));
+}
+
+/// --local pins the artifact's hash without writing it into the subject
+/// repo's git history.
+#[test]
+fn commit_artifact_local_does_not_touch_git_history() {
+    let dir = setup_project();
+    let root = dir.path();
+    run(root, &["init"]);
+    run(root, &["new", "H8"]);
+
+    let evidence_dir = root.join("evidence/E001/raw");
+    fs::create_dir_all(&evidence_dir).unwrap();
+    fs::write(evidence_dir.join("data.json"), b"[1,2,3]").unwrap();
+    run(root, &["verify", "E001", "evidence/E001/raw/data.json"]);
+    run(
+        root,
+        &[
+            "result", "E001",
+            "--classification", "CONCLUSIVE",
+            "--mechanism", "EXERCISED",
+            "--hypothesis-status", "SUPPORTED",
+            "--observation", "ok",
+            "--interpretation", "ok",
+        ],
+    );
+    run(root, &["review-result", "E001", "--reviewer", "r"]);
+
+    let before = Command::new("git").current_dir(root).args(["rev-parse", "HEAD"]).output().unwrap();
+    let before = String::from_utf8_lossy(&before.stdout).trim().to_string();
+
+    let (ok, out, err) = run(root, &["commit-artifact", "E001", "--local"]);
+    assert!(ok, "commit-artifact --local failed: {err}");
+    assert!(out.contains("ARTIFACT_COMMITTED"));
+    assert!(out.contains("not committed to git"), "expected explicit local-only message:\n{out}");
+
+    let after = Command::new("git").current_dir(root).args(["rev-parse", "HEAD"]).output().unwrap();
+    let after = String::from_utf8_lossy(&after.stdout).trim().to_string();
+    assert_eq!(before, after, "HEAD must not move on --local commit-artifact");
+
+    let (ok, out, err) = run(root, &["status", "--json"]);
+    assert!(ok, "status failed: {err}");
+    let value: serde_json::Value = serde_json::from_str(&out).unwrap();
+    assert!(value["artifact"]["commit_sha"].is_null(), "commit_sha should be absent/null for a local artifact");
+
+    // The rest of the lifecycle proceeds normally from here.
+    let (ok, _, err) = run(
+        root,
+        &[
+            "close", "E001",
+            "--status", "CONFIRMED",
+            "--established", "x",
+            "--not-established", "y",
+            "--remaining-questions", "z",
+        ],
+    );
+    assert!(ok, "close after --local commit failed: {err}");
+}

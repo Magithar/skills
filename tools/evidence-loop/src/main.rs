@@ -51,7 +51,7 @@ fn run(cli: Cli) -> anyhow::Result<()> {
         Commands::ReviewResult { experiment, reviewer, self_reviewed, notes } => {
             cmd_review_result(experiment, reviewer, self_reviewed, notes)
         }
-        Commands::CommitArtifact { experiment } => cmd_commit_artifact(experiment),
+        Commands::CommitArtifact { experiment, local } => cmd_commit_artifact(experiment, local),
         Commands::Close {
             experiment,
             status,
@@ -161,18 +161,27 @@ fn cmd_verify(experiment: String, path: String, baseline: Option<String>) -> any
     if !full_path.exists() {
         anyhow::bail!("artifact not found: {}", full_path.display());
     }
-    let bytes = evidence::read_bytes(&full_path)?;
-    let hash = evidence::hash_file(&full_path)?;
-    let structure = evidence::inspect_structure(&bytes);
+    let (hash, components, rows, terminus) = if full_path.is_dir() {
+        let (hash, file_count) = evidence::hash_dir(&full_path)?;
+        if file_count == 0 {
+            anyhow::bail!("no files found under {}", full_path.display());
+        }
+        (hash, file_count, 0, "bundle".to_string())
+    } else {
+        let bytes = evidence::read_bytes(&full_path)?;
+        let hash = evidence::hash_file(&full_path)?;
+        let structure = evidence::inspect_structure(&bytes);
+        (hash, structure.components, structure.rows, structure.terminus)
+    };
     let baseline_commit = baseline.unwrap_or_else(|| git::short_head(&project.root));
 
     record.raw = Some(RawInfo {
         path: path.clone(),
         baseline_commit,
         hash,
-        components: structure.components,
-        rows: structure.rows,
-        terminus: structure.terminus,
+        components,
+        rows,
+        terminus,
         verified_at: chrono::Utc::now(),
     });
     record.record_transition(StepCommand::Verify);
@@ -183,8 +192,12 @@ fn cmd_verify(experiment: String, path: String, baseline: Option<String>) -> any
     println!("RAW VERIFICATION\n");
     println!("Artifact: {}", raw.path);
     println!("Baseline: {}", raw.baseline_commit);
-    println!("Components: {}", raw.components);
-    println!("Rows: {}", raw.rows);
+    if raw.terminus == "bundle" {
+        println!("Files: {}", raw.components);
+    } else {
+        println!("Components: {}", raw.components);
+        println!("Rows: {}", raw.rows);
+    }
     println!("Terminus: {}", raw.terminus);
     println!("\nResult: PASS -> state {}", record.state);
     Ok(())
@@ -252,7 +265,7 @@ fn cmd_review_result(experiment: String, reviewer: String, self_reviewed: bool, 
     Ok(())
 }
 
-fn cmd_commit_artifact(experiment: String) -> anyhow::Result<()> {
+fn cmd_commit_artifact(experiment: String, local: bool) -> anyhow::Result<()> {
     let project = Project::discover(&std::env::current_dir()?)?;
     let mut record = project.load_experiment(&experiment)?;
     check_transition(&record.id, record.state, StepCommand::CommitArtifact)?;
@@ -265,7 +278,11 @@ fn cmd_commit_artifact(experiment: String) -> anyhow::Result<()> {
     if !full_path.exists() {
         anyhow::bail!("artifact no longer exists at {}", full_path.display());
     }
-    let current_hash = evidence::hash_file(&full_path)?;
+    let current_hash = if full_path.is_dir() {
+        evidence::hash_dir(&full_path)?.0
+    } else {
+        evidence::hash_file(&full_path)?
+    };
     if current_hash != raw.hash {
         anyhow::bail!(
             "artifact at {} has changed since verification (was {}, now {}); this is new evidence, not the verified artifact",
@@ -275,7 +292,11 @@ fn cmd_commit_artifact(experiment: String) -> anyhow::Result<()> {
         );
     }
 
-    let commit_sha = git::commit_artifact(&project.root, &raw.path, &record.id)?;
+    let commit_sha = if local {
+        None
+    } else {
+        Some(git::commit_artifact(&project.root, &raw.path, &record.id)?)
+    };
     record.artifact = Some(ArtifactInfo {
         committed_at: chrono::Utc::now(),
         commit_sha: commit_sha.clone(),
@@ -283,7 +304,13 @@ fn cmd_commit_artifact(experiment: String) -> anyhow::Result<()> {
     record.record_transition(StepCommand::CommitArtifact);
     project.save_experiment(&record)?;
     board::write_board(&project, &record)?;
-    println!("{} artifact committed ({commit_sha}) -> state {}", record.id, record.state);
+    match commit_sha {
+        Some(sha) => println!("{} artifact committed ({sha}) -> state {}", record.id, record.state),
+        None => println!(
+            "{} artifact pinned locally (hash {}, not committed to git) -> state {}",
+            record.id, raw.hash, record.state
+        ),
+    }
     Ok(())
 }
 
