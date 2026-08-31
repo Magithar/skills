@@ -4,6 +4,11 @@ version = "0.1.0"
 edition = "2021"
 description = "Deterministic evidence bookkeeping and closure enforcement for AI agents."
 license = "MIT"
+repository = "https://github.com/Magithar/skills"
+homepage = "https://github.com/Magithar/skills/tree/main/tools/evidence-loop"
+readme = "README.md"
+keywords = ["cli", "agent", "evidence", "hypothesis", "protocol"]
+categories = ["command-line-utilities", "development-tools"]
 
 [[bin]]
 name = "evidence-loop"
