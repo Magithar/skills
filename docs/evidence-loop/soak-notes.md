@@ -392,6 +392,60 @@ most tempting point (one step from a foregone-conclusion finish).
   commit-artifact's current behavior is always correct.
 - Status: OPEN, no implementation change made.
 
+## Soak 4 — SKILLmama E004 (cold independent review of E003)
+
+```
+evidence-loop version/commit: through 7f055ad (P0 + P1.1/P1.2/S005 fixes)
+soak status: COMPLETE — reached HYPOTHESIS_GATE
+target: not a new raw experiment -- a cold review of E003's already-closed,
+        unmodified record, run as its own evidence-loop experiment
+```
+
+H4: "An independent cold review of a completed experiment can identify
+substantive evidence or reasoning gaps that were not identified during
+self-review." Subject: E003, itself untouched (still CONCLUSIVE/EXERCISED/
+SUPPORTED, closed CONFIRMED).
+
+Method: a fresh subagent was given a packet containing only E003's
+observable record (hypothesis, verification facts, raw artifact verbatim,
+recorded result, recorded closure) with E003's own self-review reasoning
+("Review notes: ...") deliberately stripped out first -- handing that over
+would have meant showing the cold reviewer the prior reviewer's conclusions
+and asking if it agreed, not a cold review. No framing was given about why
+independent review might matter.
+
+Result: **CONCLUSIVE / EXERCISED / SUPPORTED, closed CONFIRMED.** The cold
+review found two real, substantive gaps E003's self-review missed:
+
+1. **Mechanism-exercised provenance.** E003 asserted "mechanism EXERCISED"
+   (a genuinely live OSV.dev call, not cached/mocked), but nothing in the
+   raw artifact itself can distinguish a live call from a hardcoded response
+   of the same shape. The self-review never questioned this.
+2. **Severity/verdict-tier mismatch.** Two of four advisories were OSV HIGH
+   severity, yet the overall verdict was only WARN -- unexamined and
+   unflagged in E003's own "Remaining Questions."
+
+Equally important: the cold review did *not* manufacture disagreement where
+none existed -- it independently re-verified every quoted detail (verdict,
+GHSA ids, exit code) against the raw artifact with no misquotes, and
+confirmed the classification and interpretation scoping were sound. Catching
+real gaps without inventing spurious ones is what makes this a genuine
+signal rather than noise.
+
+Explicitly scoped in closure: this is one case, not a rate. It does not by
+itself justify any role/enforcement/isolation architecture -- only that
+independent review added real value once, here, on an already-careful
+self-review. S014 was noted as open and unrelated to this hypothesis.
+
+## Cross-cutting note
+
+While running E004, `41bfb8d`'s review-independence feature got its first
+real-world exercise (`--self`, `review_kind: SELF`, the board's "Reviewed
+By" line) and worked correctly on the first try. S005's fix (dedicated
+`review_notes` field) also got exercised mid-experiment, visible as a clean
+before/after split within E004's own record (the `result` review predates
+the fix, the `closure` review postdates it).
+
 ## Workarounds
 
 - (see S001)
