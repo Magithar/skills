@@ -15,6 +15,7 @@
     "productivity"
   ],
   "skills": [
-    "./skills/engineering/dep-egress"
+    "./skills/engineering/dep-egress",
+    "./skills/engineering/evidence-loop"
   ]
 }

@@ -9,3 +9,12 @@ jobs:
         with: { node-version: 22 }
       - name: plugin.json matches skills/ on disk
         run: node scripts/sync-plugin.mjs --check
+
+  evidence-loop:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: cargo test
+        working-directory: tools/evidence-loop
+        run: cargo test

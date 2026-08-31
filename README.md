@@ -24,10 +24,16 @@
 | Skill | What it answers | Where it lives |
 |---|---|---|
 | [`dep-egress`](skills/engineering/dep-egress/SKILL.md) | What does this dependency send off the machine, to whom, is it disclosed, and can it be turned off? | this repo |
+| [`evidence-loop`](skills/engineering/evidence-loop/SKILL.md) | Has this experiment's evidence actually been verified, reviewed and closed before the hypothesis conclusion is trusted? | this repo |
 | [`skillmama`](https://github.com/Magithar/SKILLmama) | Which library, SDK or tool should I use for my stack, and is it safe? | [Magithar/SKILLmama](https://github.com/Magithar/SKILLmama) |
 
 The two compose. SKILLmama ranks candidates on compatibility, popularity, maintenance and
 simplicity. `dep-egress` runs on the winner and answers the question ranking says nothing about.
+
+`evidence-loop` is the one skill here that isn't a self-contained file: its `SKILL.md` only tells an
+agent how to drive a companion Rust CLI, which enforces the actual state machine. Build it once with
+`cargo build --release --manifest-path tools/evidence-loop/Cargo.toml` and put the resulting binary on
+`PATH`; see `docs/evidence-loop/protocol.md` for why the enforcement needed to live outside the prompt.
 
 A marketplace can list plugins that live in other repos, so SKILLmama keeps its own repository,
 issues and release history while still being installable from here.
