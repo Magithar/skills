@@ -107,6 +107,8 @@ pub struct ResultInfo {
     pub reviewer: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub review_kind: Option<ReviewKind>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub review_notes: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -128,6 +130,8 @@ pub struct ClosureInfo {
     pub reviewer: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub review_kind: Option<ReviewKind>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub review_notes: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

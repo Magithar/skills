@@ -92,6 +92,11 @@ fn render_owned(record: &ExperimentRecord) -> String {
                 out.push_str(&line);
                 out.push('\n');
             }
+            if let Some(notes) = &r.review_notes {
+                out.push_str("\n### Review Notes\n\n");
+                out.push_str(notes);
+                out.push('\n');
+            }
         }
         None => out.push_str("Pending\n"),
     }
@@ -107,6 +112,11 @@ fn render_owned(record: &ExperimentRecord) -> String {
             if let Some(line) = reviewed_by_line(&c.reviewer, &c.review_kind) {
                 out.push_str("\n### Reviewed By\n\n");
                 out.push_str(&line);
+                out.push('\n');
+            }
+            if let Some(notes) = &c.review_notes {
+                out.push_str("\n### Review Notes\n\n");
+                out.push_str(notes);
                 out.push('\n');
             }
         }

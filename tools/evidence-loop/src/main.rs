@@ -223,6 +223,7 @@ fn cmd_result(
         reviewed_at: None,
         reviewer: None,
         review_kind: None,
+        review_notes: None,
     });
     record.record_transition(StepCommand::Result);
     project.save_experiment(&record)?;
@@ -243,9 +244,7 @@ fn cmd_review_result(experiment: String, reviewer: String, self_reviewed: bool, 
     result.reviewed_at = Some(chrono::Utc::now());
     result.reviewer = Some(reviewer);
     result.review_kind = Some(if self_reviewed { ReviewKind::SelfReviewed } else { ReviewKind::Independent });
-    if let Some(notes) = notes {
-        result.interpretation.push_str(&format!("\n\nReview notes: {notes}"));
-    }
+    result.review_notes = notes;
     record.record_transition(StepCommand::ReviewResult);
     project.save_experiment(&record)?;
     board::write_board(&project, &record)?;
@@ -309,6 +308,7 @@ fn cmd_close(
         reviewed_at: None,
         reviewer: None,
         review_kind: None,
+        review_notes: None,
     });
     record.record_transition(StepCommand::Close);
     project.save_experiment(&record)?;
@@ -329,9 +329,7 @@ fn cmd_review_closure(experiment: String, reviewer: String, self_reviewed: bool,
     closure.reviewed_at = Some(chrono::Utc::now());
     closure.reviewer = Some(reviewer);
     closure.review_kind = Some(if self_reviewed { ReviewKind::SelfReviewed } else { ReviewKind::Independent });
-    if let Some(notes) = notes {
-        closure.remaining_questions.push_str(&format!("\n\nReview notes: {notes}"));
-    }
+    closure.review_notes = notes;
     record.record_transition(StepCommand::ReviewClosure);
     project.save_experiment(&record)?;
     board::write_board(&project, &record)?;

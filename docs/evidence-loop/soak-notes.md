@@ -76,8 +76,12 @@ Hypothesis: an installer's exit status alone is insufficient to establish that
 - Severity: medium — this is the single most important observation the soak
   is meant to produce, per the review plan.
 
-### S005 — `--notes` on review commands has no dedicated board slot
+### S005 — `--notes` on review commands has no dedicated board slot [FIXED]
 
+- Fixed: `review_notes` is now its own field on `ResultInfo`/`ClosureInfo`,
+  rendered as its own `### Review Notes` section. No longer appended into
+  `interpretation`/`remaining_questions`. See commit adding a dedicated
+  review-notes field.
 - Experiment: E001
 - State: RESULT_REVIEWED, CLOSURE_REVIEWED
 - Bucket: Friction
@@ -350,7 +354,7 @@ most tempting point (one step from a foregone-conclusion finish).
 | S002/S006 | components/rows metric misleading only when evidence is force-fit into JSON; honest ("unstructured") when left alone | E001, E002, E003 (all three raw artifacts were non-tabular; metric was ignored/harmless in E002 and E003 since evidence stayed in its natural shape) | Refined, not urgent — the fix may be "don't force JSON," not a tool change |
 | S003 | agent chaining impulse | E001 (near-miss) | Superseded by S010–S012 — no longer read as a live defect |
 | S004/S009 | no way to represent honest solo review vs. independent review | E001, E002, **E003 (independently reconverged on the same convention without being told)** | **Confirmed, generalizes, three-for-three** — strongest capability gap found |
-| S005 | `--notes` has no board slot | E001 | Open, low severity |
+| S005 | `--notes` has no board slot | E001 | **Fixed** — dedicated `review_notes` field/section |
 | S007 | DEGENERATE/UNEXERCISED/UNTESTED validation works correctly on independent real cases | E001 (synthetic origin), E002, E003's CONCLUSIVE path exercised the opposite branch cleanly too | Confirmed sound |
 | S008 | soak methodology was confounded by external step-gating | E001, E002 | Resolved by E003's design, not a product finding |
 | S010–S012 | unsupervised agent stops cleanly at every transition boundary, across 7 consecutive transitions, including under real competing pressure (auto-mode bias) twice | E003 only, but 7 consecutive clean stops within it | **Strong** — one-transition discipline holds without a tool-enforced gate, for this agent/model, under the tested conditions |
@@ -365,6 +369,28 @@ most tempting point (one step from a foregone-conclusion finish).
 - A first-class way to record "self-reviewed, no independent reviewer available" as distinct from a real independent review (S004/S009, confirmed 3/3, arguably the highest-confidence finding of the whole soak).
 - Something at the evidence-bundling layer for `verify` (S001), though only observed once — worth a fourth, deliberately messier soak before treating as confirmed.
 - Nothing urgent on doctor/history.jsonl/locking — none of the three soaks hit a situation where their absence caused a problem.
+
+### S014 — evidence publication boundary is undecided
+
+- Experiment: E001-E004 (retroactive)
+- Bucket: Protocol ambiguity / open design question
+- Observation: `commit-artifact` commits raw evidence directly into the
+  subject repository's own git history, with no distinction between
+  "evidence needed for experimental integrity" and "evidence appropriate for
+  that repository's public history." All four SKILLmama experiments'
+  artifacts are currently local commits there (E001 `5e6c3a0`, E002
+  `d2ca0e0`, E003 `113f532`, E004 `3b21261`) -- none pushed, so nothing is
+  actually public yet, but the tool has no opinion on whether pushing them
+  would be appropriate. For a project being experimented on that happens to
+  be a public/shared repo (as opposed to a private research sandbox), that's
+  a real gap: nothing currently stops (or even flags) committing raw
+  command output, environment details, or other experiment-specific noise
+  into a repository other people track for unrelated reasons.
+- Severity: not urgent (no soak evidence of actual harm -- nothing has been
+  published), but real and worth deciding deliberately before evidence-loop
+  is pointed at more public/shared repositories, rather than assuming
+  commit-artifact's current behavior is always correct.
+- Status: OPEN, no implementation change made.
 
 ## Workarounds
 

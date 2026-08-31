@@ -55,6 +55,7 @@ result:
   reviewed_at: 2026-08-31T00:12:00Z
   reviewer: reviewer@example.com
   review_kind: INDEPENDENT
+  review_notes: "Spot-checked the observation against the raw artifact; no drift."
 artifact:
   committed_at: 2026-08-31T00:15:00Z
   commit_sha: abc1234
@@ -64,6 +65,7 @@ closure:
   reviewed_at: 2026-08-31T00:22:00Z
   reviewer: reviewer@example.com
   review_kind: INDEPENDENT
+  review_notes: null
 ```
 
 This sidecar is the source of truth for `evidence-loop`. `BOARD.md`'s
@@ -128,6 +130,11 @@ moving — but the distinction must stay visible: `BOARD.md` renders a
 review happened, and `evidence-loop gate`'s text and `--json` output both
 surface it. A self-reviewed experiment can still reach `HYPOTHESIS_GATE`;
 it just can't look like an independently-reviewed one did.
+
+`--notes` on either review command is stored as its own `review_notes`
+field and rendered as its own `### Review Notes` section — it is never
+appended into `interpretation` or `remaining_questions`, which stay exactly
+what was recorded at `result`/`close` time.
 
 ## Example rendered `BOARD.md`
 

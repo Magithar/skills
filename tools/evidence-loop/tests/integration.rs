@@ -281,3 +281,46 @@ fn self_review_is_recorded_distinctly_from_independent_review() {
     assert_eq!(value["result_review_kind"], "SELF");
     assert_eq!(value["closure_review_kind"], "INDEPENDENT");
 }
+
+/// --notes must land in its own field/board section, not get appended into
+/// interpretation or remaining_questions prose.
+#[test]
+fn review_notes_get_their_own_section_not_appended_to_prose() {
+    let dir = setup_project();
+    let root = dir.path();
+    run(root, &["init"]);
+    run(root, &["new", "H5"]);
+
+    let evidence_dir = root.join("evidence/E001/raw");
+    fs::create_dir_all(&evidence_dir).unwrap();
+    fs::write(evidence_dir.join("data.json"), b"[1,2,3]").unwrap();
+    run(root, &["verify", "E001", "evidence/E001/raw/data.json"]);
+    run(
+        root,
+        &[
+            "result", "E001",
+            "--classification", "CONCLUSIVE",
+            "--mechanism", "EXERCISED",
+            "--hypothesis-status", "SUPPORTED",
+            "--observation", "obs-marker",
+            "--interpretation", "interp-marker",
+        ],
+    );
+    run(root, &["review-result", "E001", "--reviewer", "r", "--notes", "NOTES-MARKER"]);
+
+    let (ok, out, err) = run(root, &["status", "--json"]);
+    assert!(ok, "status failed: {err}");
+    let value: serde_json::Value = serde_json::from_str(&out).unwrap();
+    assert_eq!(value["result"]["review_notes"], "NOTES-MARKER");
+    assert_eq!(value["result"]["interpretation"], "interp-marker", "notes must not be appended to interpretation");
+
+    let board = fs::read_to_string(root.join("BOARD.md")).unwrap();
+    assert!(board.contains("### Review Notes"), "board should have a dedicated notes section:\n{board}");
+    assert!(board.contains("NOTES-MARKER"));
+    // The interpretation section itself must be exactly the marker, with no
+    // "Review notes:" text appended after it.
+    let interp_start = board.find("### Interpretation\n\n").unwrap() + "### Interpretation\n\n".len();
+    let interp_section = &board[interp_start..];
+    let interp_end = interp_section.find("\n\n").unwrap_or(interp_section.len());
+    assert_eq!(&interp_section[..interp_end], "interp-marker");
+}
