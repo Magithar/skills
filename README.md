@@ -31,9 +31,11 @@ The two compose. SKILLmama ranks candidates on compatibility, popularity, mainte
 simplicity. `dep-egress` runs on the winner and answers the question ranking says nothing about.
 
 `evidence-loop` is the one skill here that isn't a self-contained file: its `SKILL.md` only tells an
-agent how to drive a companion Rust CLI, which enforces the actual state machine. Build it once with
-`cargo build --release --manifest-path tools/evidence-loop/Cargo.toml` and put the resulting binary on
-`PATH`; see `docs/evidence-loop/protocol.md` for why the enforcement needed to live outside the prompt.
+agent how to drive a companion Rust CLI, which enforces the actual state machine. Install it with
+`cargo install evidence-loop` ([crates.io](https://crates.io/crates/evidence-loop)), or build it from
+this repo with `cargo build --release --manifest-path tools/evidence-loop/Cargo.toml`; either way, put
+the resulting binary on `PATH`. See `docs/evidence-loop/protocol.md` for why the enforcement needed to
+live outside the prompt.
 
 A marketplace can list plugins that live in other repos, so SKILLmama keeps its own repository,
 issues and release history while still being installable from here.
