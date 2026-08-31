@@ -60,11 +60,17 @@ pub enum Commands {
         override_reason: Option<String>,
     },
 
-    /// Record that a result has been independently reviewed.
+    /// Record that a result has been reviewed.
     ReviewResult {
         experiment: String,
         #[arg(long)]
         reviewer: String,
+        /// No independent reviewer was available; the recorder reviewed their
+        /// own work. Does not block the transition -- it keeps that
+        /// limitation visible instead of indistinguishable from a real
+        /// independent review.
+        #[arg(long = "self")]
+        self_reviewed: bool,
         #[arg(long)]
         notes: Option<String>,
     },
@@ -87,11 +93,17 @@ pub enum Commands {
         remaining_questions: String,
     },
 
-    /// Record that closure has been independently reviewed.
+    /// Record that closure has been reviewed.
     ReviewClosure {
         experiment: String,
         #[arg(long)]
         reviewer: String,
+        /// No independent reviewer was available; the recorder reviewed their
+        /// own work. Does not block the transition -- it keeps that
+        /// limitation visible instead of indistinguishable from a real
+        /// independent review.
+        #[arg(long = "self")]
+        self_reviewed: bool,
         #[arg(long)]
         notes: Option<String>,
     },

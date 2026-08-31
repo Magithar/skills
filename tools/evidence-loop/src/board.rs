@@ -1,4 +1,4 @@
-use crate::experiment::ExperimentRecord;
+use crate::experiment::{ExperimentRecord, ReviewKind};
 use crate::project::Project;
 use crate::state::{next_command_for, Command};
 use std::fs;
@@ -29,6 +29,15 @@ fn next_action_text(record: &ExperimentRecord) -> String {
         Some(Command::Gate) => "Run hypothesis gate.".into(),
         None => "Experiment complete. Propose a new hypothesis with `evidence-loop new`.".into(),
     }
+}
+
+fn reviewed_by_line(reviewer: &Option<String>, review_kind: &Option<ReviewKind>) -> Option<String> {
+    let reviewer = reviewer.as_ref()?;
+    let kind = match review_kind {
+        Some(ReviewKind::SelfReviewed) => "SELF-REVIEWED -- no independent reviewer available",
+        _ => "INDEPENDENT",
+    };
+    Some(format!("{kind} -- {reviewer}"))
 }
 
 fn render_owned(record: &ExperimentRecord) -> String {
@@ -78,6 +87,11 @@ fn render_owned(record: &ExperimentRecord) -> String {
             out.push_str("### Interpretation\n\n");
             out.push_str(&r.interpretation);
             out.push('\n');
+            if let Some(line) = reviewed_by_line(&r.reviewer, &r.review_kind) {
+                out.push_str("\n### Reviewed By\n\n");
+                out.push_str(&line);
+                out.push('\n');
+            }
         }
         None => out.push_str("Pending\n"),
     }
@@ -90,6 +104,11 @@ fn render_owned(record: &ExperimentRecord) -> String {
             out.push_str(&format!("### Established\n\n{}\n\n", c.established));
             out.push_str(&format!("### Not Established\n\n{}\n\n", c.not_established));
             out.push_str(&format!("### Remaining Questions\n\n{}\n", c.remaining_questions));
+            if let Some(line) = reviewed_by_line(&c.reviewer, &c.review_kind) {
+                out.push_str("\n### Reviewed By\n\n");
+                out.push_str(&line);
+                out.push('\n');
+            }
         }
         None => out.push_str("Pending\n"),
     }

@@ -53,6 +53,8 @@ result:
   hypothesis_status: UNTESTED
   recorded_at: 2026-08-31T00:10:00Z
   reviewed_at: 2026-08-31T00:12:00Z
+  reviewer: reviewer@example.com
+  review_kind: INDEPENDENT
 artifact:
   committed_at: 2026-08-31T00:15:00Z
   commit_sha: abc1234
@@ -60,6 +62,8 @@ closure:
   status: INCONCLUSIVE
   recorded_at: 2026-08-31T00:20:00Z
   reviewed_at: 2026-08-31T00:22:00Z
+  reviewer: reviewer@example.com
+  review_kind: INDEPENDENT
 ```
 
 This sidecar is the source of truth for `evidence-loop`. `BOARD.md`'s
@@ -76,6 +80,7 @@ classification:      CONCLUSIVE | INCONCLUSIVE | DEGENERATE
 mechanism:            EXERCISED | UNEXERCISED
 hypothesis_status:    SUPPORTED | REFUTED | UNTESTED
 closure.status:       CONFIRMED | REFUTED | INCONCLUSIVE
+review_kind:          INDEPENDENT | SELF
 ```
 
 ## Validation rules
@@ -83,13 +88,46 @@ closure.status:       CONFIRMED | REFUTED | INCONCLUSIVE
 - `mechanism: UNEXERCISED` + `hypothesis_status: REFUTED` is rejected. A
   mechanism that never ran cannot refute anything.
 - `classification: DEGENERATE` + `hypothesis_status` other than `UNTESTED`
-  is rejected unless the record carries an explicit `override: true` plus an
-  `override_reason` string — and an override is only ever written by a human
-  editing the sidecar directly, never by a CLI command.
+  is rejected unless `result --override-flag --override-reason "..."` is
+  passed explicitly at record time. The override is always a deliberate,
+  visible CLI argument — never something the record ends up with by editing
+  the sidecar directly, and never a default.
 - Once `artifact.commit_sha` is set, a `verify` run that computes a
   different `raw.hash` at `raw.path` fails validation instead of updating
   the record. The artifact is now historical; a changed file is new
   evidence and belongs to a new experiment.
+
+## Result → closure status
+
+`hypothesis_status` (set at `result`) and `closure.status` (set at `close`)
+are two separate fields with no automatic mapping enforced by the tool — the
+person or agent running `close` states the closure status directly, and it
+should follow from the result the same way `hypothesis_status` does:
+
+```text
+hypothesis_status: SUPPORTED               -> closure.status: CONFIRMED
+hypothesis_status: REFUTED                 -> closure.status: REFUTED
+hypothesis_status: UNTESTED (or otherwise
+  inconclusive/degenerate evidence)        -> closure.status: INCONCLUSIVE
+```
+
+`evidence-loop` does not currently reject a `close` call that contradicts
+this table — it is a convention to follow, not a validated invariant, since
+enforcing it mechanically would require the tool to interpret whether a
+`close` call's free-text `established`/`not_established` reasoning actually
+justifies the chosen status.
+
+## Review independence
+
+`review_kind` on a reviewed `result` or `closure` distinguishes an
+independent review (`INDEPENDENT`, the default) from a self-review
+(`SELF`, set only when `review-result`/`review-closure` is run with
+`--self`). Self-review does not block the transition — the loop keeps
+moving — but the distinction must stay visible: `BOARD.md` renders a
+`### Reviewed By` line under `## Result`/`## Closure` stating which kind of
+review happened, and `evidence-loop gate`'s text and `--json` output both
+surface it. A self-reviewed experiment can still reach `HYPOTHESIS_GATE`;
+it just can't look like an independently-reviewed one did.
 
 ## Example rendered `BOARD.md`
 
@@ -135,6 +173,10 @@ NO
 ### Hypothesis Status
 
 UNTESTED
+
+### Reviewed By
+
+INDEPENDENT -- reviewer@example.com
 
 ## Closure
 

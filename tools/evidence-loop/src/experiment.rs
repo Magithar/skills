@@ -35,6 +35,19 @@ pub enum ClosureStatus {
     Inconclusive,
 }
 
+/// Whether a review was done by someone other than the person who recorded
+/// what's being reviewed, or by the same party because no independent
+/// reviewer was available. Self-review does not block a transition -- it
+/// exists so that limitation stays visible on the board and in the sidecar
+/// instead of being indistinguishable from a real independent check.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum ReviewKind {
+    Independent,
+    #[serde(rename = "SELF")]
+    SelfReviewed,
+}
+
 macro_rules! screaming_display {
     ($t:ty, $($variant:ident => $s:literal),+ $(,)?) => {
         impl $t {
@@ -63,6 +76,7 @@ screaming_display!(Classification, Conclusive => "CONCLUSIVE", Inconclusive => "
 screaming_display!(Mechanism, Exercised => "EXERCISED", Unexercised => "UNEXERCISED");
 screaming_display!(HypothesisStatus, Supported => "SUPPORTED", Refuted => "REFUTED", Untested => "UNTESTED");
 screaming_display!(ClosureStatus, Confirmed => "CONFIRMED", Refuted => "REFUTED", Inconclusive => "INCONCLUSIVE");
+screaming_display!(ReviewKind, Independent => "INDEPENDENT", SelfReviewed => "SELF");
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RawInfo {
@@ -91,6 +105,8 @@ pub struct ResultInfo {
     pub reviewed_at: Option<DateTime<Utc>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub reviewer: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub review_kind: Option<ReviewKind>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -110,6 +126,8 @@ pub struct ClosureInfo {
     pub reviewed_at: Option<DateTime<Utc>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub reviewer: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub review_kind: Option<ReviewKind>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

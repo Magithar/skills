@@ -41,10 +41,10 @@ precondition already holds.
    |---|---|
    | `verify <id> <path>` | Mechanically checks a raw artifact (hash, structure, git baseline). Never call this before the artifact actually exists. |
    | `result <id> --classification --mechanism --hypothesis-status --observation --interpretation` | Records a result from verified evidence. `classification` is `CONCLUSIVE`/`INCONCLUSIVE`/`DEGENERATE`; `mechanism` is `EXERCISED`/`UNEXERCISED`; `hypothesis-status` is `SUPPORTED`/`REFUTED`/`UNTESTED`. |
-   | `review-result <id> --reviewer <name>` | Records that the result was independently reviewed. |
+   | `review-result <id> --reviewer <name> [--self]` | Records that the result was reviewed. Pass `--self` only when no independent reviewer is available and you are reviewing your own recorded result — see below. |
    | `commit-artifact <id>` | Commits the raw artifact to git, separately from interpretation. Fails if the artifact changed since verification — that means it's new evidence, not this one. |
-   | `close <id> --status --established --not-established --remaining-questions` | Records closure. `status` is `CONFIRMED`/`REFUTED`/`INCONCLUSIVE`. |
-   | `review-closure <id> --reviewer <name>` | Records that closure was independently reviewed. |
+   | `close <id> --status --established --not-established --remaining-questions` | Records closure. `status` is `CONFIRMED`/`REFUTED`/`INCONCLUSIVE`; it should follow the recorded result the same way `hypothesis_status` does — `SUPPORTED`/`CONCLUSIVE` results close `CONFIRMED`, `REFUTED` results close `REFUTED`, and `DEGENERATE`/`UNTESTED` or otherwise inconclusive results close `INCONCLUSIVE`. |
+   | `review-closure <id> --reviewer <name> [--self]` | Records that closure was reviewed. Same `--self` rule as `review-result`. |
    | `gate <id>` | Confirms every prior gate condition and opens the hypothesis gate. Only this command may end an experiment's evidence loop. |
 
 4. If the CLI rejects the command (illegal transition, or a semantic validation error), that rejection is
@@ -66,6 +66,11 @@ precondition already holds.
   experiment (`evidence-loop new`), not an edit to the old one.
 - **Never skip states**, even when you're confident the intermediate step is a formality. `next --json`
   is the only thing that tells you what's legal.
+- **Never claim an independent review you didn't get.** If you (the same agent or person who recorded the
+  result or closure) are also the one reviewing it, pass `--self` on `review-result`/`review-closure`.
+  This does not block the transition — self-review is allowed — but it must stay visible as self-review on
+  the board and in the sidecar (`review_kind: SELF`) rather than looking identical to a real independent
+  check. Do not fabricate a second reviewer identity to make it look independent when it wasn't.
 
 See `docs/evidence-loop/protocol.md`, `docs/evidence-loop/state-machine.md`, and
 `docs/evidence-loop/board-format.md` in this repo for the full specification.

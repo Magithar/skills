@@ -216,3 +216,68 @@ fn artifact_hash_immutability_blocks_commit_after_edit() {
     assert!(!ok);
     assert!(err.contains("changed since verification"), "expected hash mismatch error, got: {err}");
 }
+
+/// A self-review must be distinguishable from an independent one, on the
+/// board and in the sidecar, but must not block the transition.
+#[test]
+fn self_review_is_recorded_distinctly_from_independent_review() {
+    let dir = setup_project();
+    let root = dir.path();
+    run(root, &["init"]);
+    run(root, &["new", "H4"]);
+
+    let evidence_dir = root.join("evidence/E001/raw");
+    fs::create_dir_all(&evidence_dir).unwrap();
+    fs::write(evidence_dir.join("data.json"), b"[1,2,3]").unwrap();
+    run(root, &["verify", "E001", "evidence/E001/raw/data.json"]);
+    run(
+        root,
+        &[
+            "result", "E001",
+            "--classification", "CONCLUSIVE",
+            "--mechanism", "EXERCISED",
+            "--hypothesis-status", "SUPPORTED",
+            "--observation", "ok",
+            "--interpretation", "ok",
+        ],
+    );
+
+    let (ok, out, err) = run(root, &["review-result", "E001", "--reviewer", "me@example.com", "--self"]);
+    assert!(ok, "review-result --self failed: {err}");
+    assert!(out.contains("RESULT_REVIEWED"));
+
+    let (ok, out, err) = run(root, &["status", "--json"]);
+    assert!(ok, "status failed: {err}");
+    let value: serde_json::Value = serde_json::from_str(&out).unwrap();
+    assert_eq!(value["result"]["review_kind"], "SELF");
+
+    let board = fs::read_to_string(root.join("BOARD.md")).unwrap();
+    assert!(board.contains("SELF-REVIEWED"), "board should surface self-review distinctly:\n{board}");
+
+    // Without --self, the same command records an independent review.
+    run(root, &["commit-artifact", "E001"]);
+    run(
+        root,
+        &[
+            "close", "E001",
+            "--status", "CONFIRMED",
+            "--established", "x",
+            "--not-established", "y",
+            "--remaining-questions", "z",
+        ],
+    );
+    let (ok, out, err) = run(root, &["review-closure", "E001", "--reviewer", "someone-else@example.com"]);
+    assert!(ok, "review-closure failed: {err}");
+    assert!(out.contains("CLOSURE_REVIEWED"));
+
+    let (ok, out, err) = run(root, &["status", "--json"]);
+    assert!(ok, "status failed: {err}");
+    let value: serde_json::Value = serde_json::from_str(&out).unwrap();
+    assert_eq!(value["closure"]["review_kind"], "INDEPENDENT");
+
+    let (ok, out, err) = run(root, &["gate", "E001", "--json"]);
+    assert!(ok, "gate failed: {err}");
+    let value: serde_json::Value = serde_json::from_str(&out).unwrap();
+    assert_eq!(value["result_review_kind"], "SELF");
+    assert_eq!(value["closure_review_kind"], "INDEPENDENT");
+}

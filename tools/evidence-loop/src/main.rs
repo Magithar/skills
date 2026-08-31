@@ -9,7 +9,7 @@ mod validation;
 
 use clap::Parser;
 use cli::{Cli, Commands};
-use experiment::{ArtifactInfo, Classification, ClosureInfo, ClosureStatus, ExperimentRecord, HypothesisStatus, Mechanism, RawInfo, ResultInfo};
+use experiment::{ArtifactInfo, Classification, ClosureInfo, ClosureStatus, ExperimentRecord, HypothesisStatus, Mechanism, RawInfo, ResultInfo, ReviewKind};
 use project::Project;
 use state::{check_transition, next_command_for, Command as StepCommand};
 use std::str::FromStr;
@@ -48,7 +48,9 @@ fn run(cli: Cli) -> anyhow::Result<()> {
             override_flag,
             override_reason,
         ),
-        Commands::ReviewResult { experiment, reviewer, notes } => cmd_review_result(experiment, reviewer, notes),
+        Commands::ReviewResult { experiment, reviewer, self_reviewed, notes } => {
+            cmd_review_result(experiment, reviewer, self_reviewed, notes)
+        }
         Commands::CommitArtifact { experiment } => cmd_commit_artifact(experiment),
         Commands::Close {
             experiment,
@@ -57,7 +59,9 @@ fn run(cli: Cli) -> anyhow::Result<()> {
             not_established,
             remaining_questions,
         } => cmd_close(experiment, status, established, not_established, remaining_questions),
-        Commands::ReviewClosure { experiment, reviewer, notes } => cmd_review_closure(experiment, reviewer, notes),
+        Commands::ReviewClosure { experiment, reviewer, self_reviewed, notes } => {
+            cmd_review_closure(experiment, reviewer, self_reviewed, notes)
+        }
         Commands::Gate { experiment, json } => cmd_gate(experiment, json),
     }
 }
@@ -218,6 +222,7 @@ fn cmd_result(
         recorded_at: chrono::Utc::now(),
         reviewed_at: None,
         reviewer: None,
+        review_kind: None,
     });
     record.record_transition(StepCommand::Result);
     project.save_experiment(&record)?;
@@ -226,7 +231,7 @@ fn cmd_result(
     Ok(())
 }
 
-fn cmd_review_result(experiment: String, reviewer: String, notes: Option<String>) -> anyhow::Result<()> {
+fn cmd_review_result(experiment: String, reviewer: String, self_reviewed: bool, notes: Option<String>) -> anyhow::Result<()> {
     let project = Project::discover(&std::env::current_dir()?)?;
     let mut record = project.load_experiment(&experiment)?;
     check_transition(&record.id, record.state, StepCommand::ReviewResult)?;
@@ -237,6 +242,7 @@ fn cmd_review_result(experiment: String, reviewer: String, notes: Option<String>
         .ok_or_else(|| anyhow::anyhow!("no result recorded for {}", record.id))?;
     result.reviewed_at = Some(chrono::Utc::now());
     result.reviewer = Some(reviewer);
+    result.review_kind = Some(if self_reviewed { ReviewKind::SelfReviewed } else { ReviewKind::Independent });
     if let Some(notes) = notes {
         result.interpretation.push_str(&format!("\n\nReview notes: {notes}"));
     }
@@ -302,6 +308,7 @@ fn cmd_close(
         recorded_at: chrono::Utc::now(),
         reviewed_at: None,
         reviewer: None,
+        review_kind: None,
     });
     record.record_transition(StepCommand::Close);
     project.save_experiment(&record)?;
@@ -310,7 +317,7 @@ fn cmd_close(
     Ok(())
 }
 
-fn cmd_review_closure(experiment: String, reviewer: String, notes: Option<String>) -> anyhow::Result<()> {
+fn cmd_review_closure(experiment: String, reviewer: String, self_reviewed: bool, notes: Option<String>) -> anyhow::Result<()> {
     let project = Project::discover(&std::env::current_dir()?)?;
     let mut record = project.load_experiment(&experiment)?;
     check_transition(&record.id, record.state, StepCommand::ReviewClosure)?;
@@ -321,6 +328,7 @@ fn cmd_review_closure(experiment: String, reviewer: String, notes: Option<String
         .ok_or_else(|| anyhow::anyhow!("no closure recorded for {}", record.id))?;
     closure.reviewed_at = Some(chrono::Utc::now());
     closure.reviewer = Some(reviewer);
+    closure.review_kind = Some(if self_reviewed { ReviewKind::SelfReviewed } else { ReviewKind::Independent });
     if let Some(notes) = notes {
         closure.remaining_questions.push_str(&format!("\n\nReview notes: {notes}"));
     }
@@ -340,24 +348,34 @@ fn cmd_gate(experiment: String, json: bool) -> anyhow::Result<()> {
     project.save_experiment(&record)?;
     board::write_board(&project, &record)?;
 
+    let result_review_kind = record.result.as_ref().and_then(|r| r.review_kind);
+    let closure_review_kind = record.closure.as_ref().and_then(|c| c.review_kind);
+
     if json {
         let value = serde_json::json!({
             "experiment": record.id,
             "state": record.state.as_str(),
             "raw_verified": record.raw.is_some(),
             "result_reviewed": record.result.as_ref().and_then(|r| r.reviewed_at).is_some(),
+            "result_review_kind": result_review_kind.map(|k| k.as_str()),
             "artifact_committed": record.artifact.is_some(),
             "closure_reviewed": record.closure.as_ref().and_then(|c| c.reviewed_at).is_some(),
+            "closure_review_kind": closure_review_kind.map(|k| k.as_str()),
         });
         println!("{}", serde_json::to_string_pretty(&value)?);
         return Ok(());
     }
 
+    let review_label = |kind: Option<ReviewKind>| match kind {
+        Some(ReviewKind::SelfReviewed) => " (SELF-REVIEWED, no independent reviewer available)",
+        _ => "",
+    };
+
     println!("HYPOTHESIS GATE\n");
     println!("Raw artifact verified: YES");
-    println!("Result reviewed:       YES");
+    println!("Result reviewed:       YES{}", review_label(result_review_kind));
     println!("Artifact committed:    YES");
-    println!("Closure reviewed:      YES");
+    println!("Closure reviewed:      YES{}", review_label(closure_review_kind));
     if let Some(r) = &record.result {
         println!("\nClassification: {}", r.classification);
         println!("Mechanism exercised: {}", if matches!(r.mechanism, Mechanism::Exercised) { "YES" } else { "NO" });
