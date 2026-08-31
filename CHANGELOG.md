@@ -2,6 +2,25 @@
 
 Skills and repo tooling. [`skill-land`](tools/skill-land/CHANGELOG.md) versions separately.
 
+## 0.3.0
+
+### Added
+- **`evidence-loop`, the second skill in this repo.** Enforces a deterministic evidence lifecycle
+  for repeated experiments — raw artifact verified, result recorded, result reviewed, artifact
+  committed to git, closure recorded, closure reviewed — before any hypothesis conclusion is
+  allowed. Unlike every other skill here, its `SKILL.md` is not self-contained: it only tells an
+  agent how to drive a companion Rust CLI (`tools/evidence-loop/`), which enforces the state machine
+  itself so the guarantee doesn't depend on a model following prompt instructions.
+- **The `tools/evidence-loop` Rust CLI**, built with `cargo build --release` and put on `PATH`.
+  Covered by `cargo test` in CI (`.github/workflows/check.yml`).
+- **`docs/evidence-loop/`**: `protocol.md` (why enforcement lives outside the prompt),
+  `state-machine.md`, `board-format.md`, and `soak-notes.md` (validation notes, including the S001
+  evidence-bundle and S014 local-only-artifact refinements, and the E004 cold independent review).
+
+### Notes
+- One invocation of the skill performs at most one state transition by design — the CLI, not the
+  model, is the source of truth for what state an experiment is in and what may happen next.
+
 ## 0.2.0
 
 ### Added
