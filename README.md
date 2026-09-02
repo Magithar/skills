@@ -1,4 +1,4 @@
-<h1 align="center">Magithar's Skills</h1>
+<h1 align="center">MaGi's Skills</h1>
 
 <p align="center">
   <img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License"/>
