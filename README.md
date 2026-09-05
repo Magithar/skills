@@ -71,6 +71,10 @@ Skills are plain files, so a copy is a valid install. Only the directory differs
 | OpenAI Codex | `~/.codex/skills/<name>/SKILL.md` |
 | Antigravity | `~/.gemini/config/skills/<name>/SKILL.md` |
 
+Antigravity reads three global directories — `~/.gemini/config/skills`, `~/.gemini/skills` and
+`~/.gemini/antigravity-cli/skills` — verified live against `agy` 1.1.27 on 2026-09-05 by planting
+a canary skill in each. Any one of them works; `~/.gemini/config/skills` is the one to prefer.
+
 ```bash
 mkdir -p ~/.codex/skills/dep-egress
 curl -sL https://raw.githubusercontent.com/Magithar/skills/main/skills/engineering/dep-egress/SKILL.md \
@@ -83,6 +87,11 @@ Restart Antigravity after installing; it reads skills at startup.
 > neither agent reads, and still exits 0. Verified against `skills@1.5.22` on 2026-08-08. Tracked
 > upstream in [vercel-labs/skills#1060](https://github.com/vercel-labs/skills/issues/1060), fix
 > pending in [PR #1483](https://github.com/vercel-labs/skills/pull/1483).
+>
+> The other half is on Antigravity's side: `~/.agents/skills` is not a global search path there.
+> Confirmed live on `agy` 1.1.27 (2026-09-05) — it appears only when its parent is the active
+> workspace (`agy --add-dir $HOME`), which is project-local behaviour. Tracked in
+> [antigravity-cli#103](https://github.com/google-antigravity/antigravity-cli/issues/103), open.
 
 ---
 
@@ -113,9 +122,14 @@ exits non-zero if it didn't. Built because `npx skills add -g` reports success w
 somewhere Codex and Antigravity never look.
 
 ```bash
-npx skill-land Magithar/SKILLmama --for codex,antigravity
-npx skill-land Magithar/SKILLmama --for codex --verify
+npx skill-land Magithar/SKILLmama --for codex,antigravity   # install, then verify
+npx skill-land Magithar/SKILLmama --for codex --verify      # audit an existing install
+npx skill-land ~/.agents/skills --for antigravity --verify --all   # audit everything you have
 ```
+
+`--verify --all` answers a question nothing else in the ecosystem does: are the skills you already
+installed where the agent actually reads, whatever put them there? It compares hashes, not sizes —
+run against a real `~/.agents/skills` it found a file of identical byte length and a different hash.
 
 Published as [`skill-land`](https://www.npmjs.com/package/skill-land) on npm.
 Source and docs: [tools/skill-land/](tools/skill-land/README.md).

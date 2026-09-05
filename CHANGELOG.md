@@ -2,6 +2,32 @@
 
 Skills and repo tooling. [`skill-land`](tools/skill-land/CHANGELOG.md) versions separately.
 
+## Unreleased
+
+### Fixed
+- **CI never ran the `skill-land` tests.** `check.yml` had two jobs, `manifest` and `evidence-loop`.
+  The suite ran only when someone remembered to run it by hand, so a green check said nothing about
+  the package, and `publish-skill-land.yml` fires on a tag and would ship whatever was there. For a
+  tool whose whole claim is that nothing in the ecosystem verifies what it asserts, keeping its own
+  suite outside CI was the same failure one level up.
+- **`publish-skill-land.yml` granted `contents: read`**, so `gh release create` 403'd *after*
+  `npm publish` had already succeeded — a red run that shipped a package. Latent since the file was
+  written; never reached, because the publish step had always failed first. Now `contents: write`.
+
+### Notes
+- **The publish workflow had never succeeded.** Both of its runs before 2026-09-05 failed, so
+  `skill-land` 1.1.0 on npm was released by hand, not by the automation the docs described. The
+  cause was that no npm Trusted Publisher was configured for the package: npm falls back to token
+  auth when the registry reports no matching publisher, found `setup-node`'s placeholder
+  `NODE_AUTH_TOKEN`, and got `404` on `PUT`. Fixed by configuring the publisher on npmjs.com;
+  `skill-land` 1.2.0 is the first release this workflow has actually produced, with signed
+  provenance.
+- **Antigravity's global skill directories are now live-verified**, not inferred: a canary skill in
+  each candidate directory, then `agy -p "/skills"` from a neutral workspace on `agy` 1.1.27.
+  `~/.gemini/config/skills`, `~/.gemini/skills` and `~/.gemini/antigravity-cli/skills` are read;
+  `~/.agents/skills` and `~/.gemini/antigravity/skills` are not. Details in
+  [tools/skill-land/CHANGELOG.md](tools/skill-land/CHANGELOG.md).
+
 ## 0.3.0
 
 ### Added

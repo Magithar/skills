@@ -15,7 +15,10 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  # write, not read: the release step calls `gh release create`. With read it
+  # 403s *after* npm publish has already succeeded, leaving a red run that did
+  # in fact ship a package — the worst kind of signal.
+  contents: write
   id-token: write
 
 jobs:
