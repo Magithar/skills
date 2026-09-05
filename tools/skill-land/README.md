@@ -56,6 +56,8 @@ npx skill-land <source> --for <agent> [options]
 |---|---|
 | `--for <agent>` | target agent; repeatable or comma-separated |
 | `--skill <name>` | which skill, when the source contains several |
+| `--all` | every skill in the source, not just one |
+| `--verbose` | per-skill detail when `--all` (default: one line each) |
 | `--project` | install into `./` instead of the user-global directory |
 | `--dry-run` | resolve and report, write nothing |
 | `--verify` | check an existing install, write nothing |
@@ -69,7 +71,46 @@ skill-land Magithar/SKILLmama --for codex,antigravity
 
 # audit an install someone else did
 skill-land Magithar/SKILLmama --for codex --verify
+
+# audit every skill you have, however it was installed
+skill-land ~/.agents/skills --for antigravity --verify --all
 ```
+
+## Auditing a whole directory
+
+`--all` takes every skill in the source instead of one. It is never the default:
+[`selectSkill()`](skill-land.mjs) refuses to guess when a source holds several,
+and `--all` is you saying you meant all of them.
+
+The use it was built for is `--verify --all` — checking whether the skills you
+already installed are where the agent actually reads, whatever put them there.
+That question is unanswerable today even if your setup works, because nothing in
+the ecosystem reads an install back:
+
+```
+$ skill-land ~/.agents/skills --for antigravity --verify --all
+
+  source   /Users/you/.agents/skills
+  skills   1 found
+  impeccable                    FAIL  0/3
+        x ~/.gemini/config/skills/impeccable/SKILL.md
+          file exists: ~/.gemini/config/skills/impeccable/SKILL.md
+        x ~/.gemini/skills/impeccable/SKILL.md
+          content matches source: 10401 bytes sha abd76e36cf1d vs 10401 bytes sha a1ea82ce80f4
+  1 skill, 3 failed
+```
+
+That middle line is why the check compares hashes and not sizes: both files are
+10401 bytes and they are not the same file. A copy that drifted after install
+looks identical to `ls`.
+
+One line per skill, because a report nobody reads verifies nothing; `--verbose`
+restores the full per-target output. Failing paths are always named — a summary
+you have to re-run to act on is not a summary.
+
+With `--strict`, a flagged skill is skipped and the rest still install; the run
+exits non-zero and lists what it skipped. All-or-nothing across a directory would
+let one flagged skill block every clean one.
 
 ## What "verified" means
 
@@ -88,19 +129,63 @@ unwritable destination, and a real `npx skills add` install (correctly reported 
 
 ## Antigravity
 
-Antigravity loads skills at startup, so an install cannot be confirmed live. Two
-candidate directories exist and both were created by Antigravity itself in the same
-second:
+Antigravity loads skills at startup, so an install cannot be confirmed live. The
+`agy` search path was stated by an Antigravity maintainer on 2026-09-05 in
+[antigravity-cli#103](https://github.com/google-antigravity/antigravity-cli/issues/103#issuecomment-5547952239):
 
 ```
-~/.gemini/antigravity/skills     what the skills CLI registry declares
-~/.gemini/config/skills          confirmed working by live testing
+~/.gemini/config/skills            primary; independently confirmed by live testing
+~/.gemini/skills                   fallback
+~/.gemini/antigravity-cli/skills   fallback
 ```
 
-The `language_server` binary contains `skillsPaths` and `skills_paths`, so the search
-path is a configurable list rather than a single directory. Until that list is pinned
-down, `--for antigravity` writes to both and says so. Restart Antigravity fully after
-installing.
+`--for antigravity` writes to all three and says so. The `language_server` binary
+contains `skillsPaths` and `skills_paths`, so this is a configurable list rather than a
+single directory, and the maintainer statement covers the CLI — whether the IDE surface
+reads the same list is **unverified**.
+
+Checked against the shipped binaries (Antigravity 2026-07-30 build, inspected
+2026-09-05). `language_server` contains **no** `.gemini/*/skills` literal at all:
+`skills_paths` is a repeated protobuf field, so the client passes the list in, and
+skills resolve to `skills/<name>/` under a *customization root*. Both roots we write
+to are named in the shipped strings and config:
+
+- `~/.gemini/config/` holds `config.json` and `skills/` — the global root
+- `~/.gemini/antigravity-cli/` — "The CLI is configured via
+  `~/.gemini/antigravity-cli/settings.json`" (`language_server`)
+
+1.1.0 and earlier also wrote `~/.gemini/antigravity/skills`, on the reasoning that
+Antigravity created that directory itself. That reasoning was wrong: `app.asar` defines
+`~/.gemini/antigravity` as `IDE_OLD_DATA_DIR`, the **legacy IDE data directory** being
+migrated to `~/.gemini/antigravity-ide`. It was never a skills root. No longer written.
+
+### Live verification
+
+Confirmed against **`agy` 1.1.27 on 2026-09-05**, not inferred. A uniquely-named
+canary skill was planted in each candidate directory and `agy -p "/skills"` run from
+a neutral workspace:
+
+| directory | listed? |
+|---|---|
+| `~/.gemini/config/skills` | **yes** |
+| `~/.gemini/skills` | **yes** |
+| `~/.gemini/antigravity-cli/skills` | **yes** |
+| `~/.agents/skills` | no |
+| `~/.gemini/antigravity/skills` | no |
+
+All three directories `skill-land` writes to are read. The two it does not write to
+are not.
+
+`~/.agents/skills` appears **only** when its parent is the active workspace
+(`agy --add-dir $HOME`) — that is project-local behaviour, not a global search path,
+which is exactly what [#103](https://github.com/google-antigravity/antigravity-cli/issues/103)
+is asking to change. Confirmed still open at 1.1.27.
+
+Two side findings: project-local `.agents/skills` is read only when the directory is
+a **registered workspace** — being the current directory was not enough — and
+`.antigravity/skills` and `.agy/skills` are not read at all.
+
+Restart Antigravity fully after installing.
 
 ## Security scan
 
