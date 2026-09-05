@@ -1,5 +1,37 @@
 # Changelog
 
+## 1.3.0
+
+### Fixed
+- **A skill is a directory, and `skill-land` was copying one file of it.** Every version through
+  1.2.0 copied and verified `SKILL.md` alone. Install `impeccable` — 148 files — and you got 1 of
+  them, with every `node .../scripts/context.mjs` reference dangling, reported as **verified**.
+  A false "verified" is the exact failure this tool exists to catch, so it was the same bug it was
+  built to expose, one level up. It now copies every file under the skill directory and reads each
+  one back.
+- **`--verify` demanded a copy in every directory an agent reads.** Antigravity has three, and
+  `skill-land` writes all three, but a skill complete in *one* of them is installed. Requiring all
+  three reported working installs as broken — two of three false failures on a real install.
+  Verifying now passes if the skill is complete in any one read path; installing still requires
+  every path it just wrote.
+
+### Added
+- Per-file counts everywhere: `148 files, 2.9 MB` in the header, `111/148 files` per directory, and
+  `--dry-run` states what it would copy before writing. A partial copy can no longer read as success.
+- A directory holding none of the skill reports `not installed` rather than one failure per absent
+  file, so partially-installed directories stay visible.
+- Nine tests, including the regression directly: `SKILL.md` intact with a sibling missing must fail.
+
+### Notes
+- **Verification assumes the installer copied.** Some installers rewrite on install — the `skills`
+  CLI adapts `impeccable` for Antigravity, rewriting `.agents/skills/...` to `.gemini/skills/...`
+  and `$impeccable` to `/impeccable`. Those files are correct and still report `content matches
+  source` failures, because they do differ from source. `skill-land` reports the difference and does
+  not guess which side is right; the README says so plainly.
+- This was found by running 1.2.0's own `--verify --all` against a real `~/.agents/skills` and
+  checking the three failures it reported. All three were false. The single-file assumption was
+  behind two of them.
+
 ## 1.2.0
 
 ### Added

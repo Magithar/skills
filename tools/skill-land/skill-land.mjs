@@ -16,7 +16,7 @@ import {
   readFileSync, realpathSync, rmSync, statSync,
 } from "fs";
 import { homedir, tmpdir } from "os";
-import { basename, dirname, join, resolve } from "path";
+import { basename, dirname, join, relative, resolve } from "path";
 import { fileURLToPath } from "url";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -24,6 +24,8 @@ const { agents: AGENTS } = JSON.parse(readFileSync(join(HERE, "agents.json"), "u
 
 const sha256 = (buf) => createHash("sha256").update(buf).digest("hex");
 const expand = (p) => (p.startsWith("~/") ? join(homedir(), p.slice(2)) : p);
+const fmtBytes = (n) => n < 1024 ? `${n} B`
+  : n < 1024 * 1024 ? `${(n / 1024).toFixed(1)} kB` : `${(n / 1024 / 1024).toFixed(1)} MB`;
 const die = (msg) => { console.error(`\n  error  ${msg}\n`); process.exit(1); };
 
 // ---------------------------------------------------------------- source
@@ -137,6 +139,33 @@ function selectAll(root) {
   if (!hits.length)
     die(`no SKILL.md found under ${root}\n         searched ${MAX_DEPTH} levels deep`);
   return hits;
+}
+
+// A skill is a directory, not a file. impeccable ships 148 files; copying only
+// SKILL.md yields a skill whose every `node .../scripts/context.mjs` reference
+// dangles — and 1.2.0 called that "verified", which is precisely the failure
+// this tool exists to catch. Walk the whole skill directory instead.
+//
+// Returns paths relative to the skill root, SKILL.md first so it is written and
+// reported before anything that references it.
+function collectSkillFiles(skillDir, skillFile) {
+  const out = [];
+  (function walk(dir, depth) {
+    if (depth > MAX_DEPTH) return;
+    let entries;
+    try { entries = readdirSync(dir, { withFileTypes: true }); } catch { return; }
+    for (const e of entries) {
+      const abs = join(dir, e.name);
+      if (e.isDirectory()) {
+        if (!NEVER_SKILLS.has(e.name)) walk(abs, depth + 1);
+        continue;
+      }
+      if (!e.isFile() && !e.isSymbolicLink()) continue;
+      out.push(relative(skillDir, abs));
+    }
+  })(skillDir, 0);
+  return out.sort((a, b) =>
+    (a === skillFile ? -1 : b === skillFile ? 1 : 0) || a.localeCompare(b));
 }
 
 function parseFrontmatter(text) {
@@ -272,6 +301,7 @@ function securityScan(skillPath) {
 // ---------------------------------------------------------------- verify
 
 // An install is not done until read-back confirms it. This is the whole point.
+// Called once per file in the skill; `expected.name` is set only for SKILL.md.
 function verify(target, expected) {
   const checks = [];
   const ok = (name, pass, detail) => { checks.push({ name, pass, detail }); return pass; };
@@ -313,7 +343,17 @@ function runSkill(skillPath, root, quiet) {
   const fm = parseFrontmatter(body);
   const skillName = (fm.name || "skill").toLowerCase().replace(/[^a-z0-9._-]+/g, "-");
   const rawBody = readFileSync(skillPath);
-  const expected = { bytes: rawBody.length, hash: sha256(rawBody), name: fm.name };
+
+  // The skill is the directory SKILL.md sits in. `name` is set only on SKILL.md
+  // so the frontmatter check does not run against scripts and reference docs.
+  const skillDir = dirname(skillPath);
+  const skillFile = basename(skillPath);
+  const files = collectSkillFiles(skillDir, skillFile).map((rel) => {
+    const raw = readFileSync(join(skillDir, rel));
+    return { rel, bytes: raw.length, hash: sha256(raw),
+             name: rel === skillFile ? fm.name : undefined };
+  });
+  const totalBytes = files.reduce((n, f) => n + f.bytes, 0);
 
   // Scan before any write. A blocked skill must never reach disk.
   const scan = (skipSecurity || verifyOnly) ? { status: "skipped" } : securityScan(skillPath);
@@ -338,7 +378,7 @@ function runSkill(skillPath, root, quiet) {
     process.stdout.write(`  ${(fm.name || basename(dirname(skillPath))).slice(0, 28).padEnd(30)}`);
   } else {
   console.log(`\n  source   ${src.label}`);
-  console.log(`  skill    ${fm.name || "(no frontmatter name)"}  [${rawBody.length} bytes, sha ${expected.hash.slice(0,12)}]`);
+  console.log(`  skill    ${fm.name || "(no frontmatter name)"}  [${files.length} file${files.length === 1 ? "" : "s"}, ${fmtBytes(totalBytes)}, SKILL.md sha ${files[0].hash.slice(0,12)}]`);
   console.log(`  from     ${skillPath.replace(root, ".")}`);
   }
   if (!verifyOnly && !quiet) {
@@ -377,39 +417,79 @@ function runSkill(skillPath, root, quiet) {
 
     if (!quiet) console.log(`  ${a.display}`);
 
+    const baseResults = [];
+
     for (const base of bases) {
       const destDir = join(base, skillName);
-      const target = join(destDir, a.file);
 
       targetCount++;
       if (dryRun) {
         if (quiet) continue;
-        console.log(`    would write  ${target}`);
+        console.log(`    would write  ${destDir}  (${files.length} file${files.length === 1 ? "" : "s"}, ${fmtBytes(totalBytes)})`);
         continue;
       }
 
-      // A write that throws is a failed install, not a crash. Report it the
-      // same way as a failed read-back so one exit path covers both.
-      let writeErr = null;
-      if (!verifyOnly) {
-        try {
-          mkdirSync(destDir, { recursive: true });
-          cpSync(skillPath, target);
-        } catch (e) {
-          writeErr = `${e.code || "error"}: ${e.message.split("\n")[0]}`;
+      // Every file in the skill, each read back. A skill whose SKILL.md landed
+      // but whose scripts/ did not is broken, and must not report verified.
+      const badFiles = [];
+      for (const f of files) {
+        const target = join(destDir, f.rel);
+
+        // A write that throws is a failed install, not a crash. Report it the
+        // same way as a failed read-back so one exit path covers both.
+        let writeErr = null;
+        if (!verifyOnly) {
+          try {
+            mkdirSync(dirname(target), { recursive: true });
+            cpSync(join(skillDir, f.rel), target);
+          } catch (e) {
+            writeErr = `${e.code || "error"}: ${e.message.split("\n")[0]}`;
+          }
         }
+
+        const checks = writeErr
+          ? [{ name: "write", pass: false, detail: writeErr }]
+          : verify(target, f);
+        if (!checks.every((c) => c.pass)) badFiles.push({ target, rel: f.rel, checks });
       }
 
-      const checks = writeErr
-        ? [{ name: "write", pass: false, detail: writeErr }]
-        : verify(target, expected);
-      const passed = checks.every((c) => c.pass);
-      if (!passed) { skillFailed++; bad.push({ target, checks }); }
+      baseResults.push({ destDir, badFiles, passed: badFiles.length === 0 });
+    }
 
-      if (quiet) continue;
-      console.log(`    ${passed ? "OK  " : "FAIL"}  ${target}${verifyOnly ? "  (verify only)" : ""}`);
-      for (const c of checks) {
-        if (!c.pass) console.log(`            x ${c.name}: ${c.detail}`);
+    if (!dryRun) {
+      // An install lives in ONE directory the agent reads. Requiring every
+      // fallback to hold a copy manufactures failures: skill-land writes three
+      // paths for Antigravity, but a skill complete in any one of them IS
+      // installed. Installing still demands all three, since it just wrote them.
+      const agentPassed = verifyOnly
+        ? baseResults.some((r) => r.passed)
+        : baseResults.every((r) => r.passed);
+      if (!agentPassed) {
+        skillFailed++;
+        for (const r of baseResults) for (const b of r.badFiles) bad.push(b);
+      }
+
+      if (!quiet) {
+        for (const r of baseResults) {
+          const n = files.length - r.badFiles.length;
+          // Nothing present at all is one fact, not N failures. Listing every
+          // absent file buries the directories that are partially installed,
+          // which are the ones worth looking at.
+          const absent = r.badFiles.length === files.length
+            && r.badFiles.every((b) => b.checks.some((c) => c.name === "file exists" && !c.pass));
+          if (absent) {
+            console.log(`    FAIL  ${r.destDir}  not installed${verifyOnly ? "  (verify only)" : ""}`);
+            continue;
+          }
+          console.log(`    ${r.passed ? "OK  " : "FAIL"}  ${r.destDir}  ${n}/${files.length} file${files.length === 1 ? "" : "s"}${verifyOnly ? "  (verify only)" : ""}`);
+          for (const b of r.badFiles.slice(0, 10)) {
+            console.log(`            x ${b.rel}`);
+            for (const c of b.checks) if (!c.pass) console.log(`              ${c.name}: ${c.detail}`);
+          }
+          if (r.badFiles.length > 10) console.log(`            ... and ${r.badFiles.length - 10} more file(s)`);
+        }
+        if (verifyOnly && agentPassed && baseResults.some((r) => !r.passed))
+          console.log(`    note  complete in at least one directory ${a.display} reads; that is an install`);
       }
     }
 
@@ -422,13 +502,14 @@ function runSkill(skillPath, root, quiet) {
   // One line per skill: the counts, then every failing path underneath it. A
   // summary that hid which path failed would need a second run to be actionable.
   if (quiet) {
-    const okCount = targetCount - skillFailed;
-    if (dryRun) console.log(`--    ${targetCount} target${targetCount === 1 ? "" : "s"} (dry run)`);
-    else console.log(`${skillFailed ? "FAIL" : "OK  "}  ${okCount}/${targetCount}`);
-    for (const b of bad) {
+    const nf = `${files.length} file${files.length === 1 ? "" : "s"}`;
+    if (dryRun) console.log(`--    ${targetCount} target${targetCount === 1 ? "" : "s"}, ${nf} (dry run)`);
+    else console.log(`${skillFailed ? "FAIL" : "OK  "}  ${nf}`);
+    for (const b of bad.slice(0, 10)) {
       console.log(`        x ${b.target}`);
       for (const c of b.checks) if (!c.pass) console.log(`          ${c.name}: ${c.detail}`);
     }
+    if (bad.length > 10) console.log(`        ... and ${bad.length - 10} more file(s)`);
   }
   return { name: skillName, failed: skillFailed, skipped: skillSkipped };
 }
@@ -454,7 +535,8 @@ if (!argv.length || argv.includes("-h") || argv.includes("--help")) {
     --strict        refuse to install anything SkillSpector flags
     --list          show known agents and their directories
 
-  Verifies the file landed where the agent actually reads. Exits non-zero if not.
+  Copies every file in the skill, then reads each back. Exits non-zero if any
+  file did not land where the agent actually reads.
 `);
   process.exit(0);
 }

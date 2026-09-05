@@ -114,15 +114,32 @@ let one flagged skill block every clean one.
 
 ## What "verified" means
 
-An install is not done until read-back confirms it:
+A skill is a **directory**, not a file. `skill-land` copies every file under it and reads
+each one back. For each file:
 
 1. file exists at the target path
 2. non-empty
 3. byte-identical to the source
-4. frontmatter `name` matches the source
+4. frontmatter `name` matches the source (`SKILL.md` only)
 
 Any failure prints the specific check that failed and **exits non-zero**. A write that
 throws (permissions, read-only directory) is reported as a failed install, not a crash.
+
+Self-contained skills are unaffected — the directory holds one file, so one file is copied.
+Multi-file skills are the reason this matters: `impeccable` ships 148 files, and an install
+of only its `SKILL.md` leaves every `node .../scripts/context.mjs` reference dangling.
+
+Where an agent has several directories it reads, `--verify` counts the skill as installed if
+it is **complete in any one of them**. Requiring every fallback to hold a copy reports
+working installs as broken.
+
+### What it cannot tell you
+
+Verification assumes the installer **copied**. Some installers **rewrite** on install — the
+`skills` CLI adapts `impeccable` for Antigravity, changing `.agents/skills/...` paths to
+`.gemini/skills/...` and `$impeccable` to `/impeccable`. Those files are correct and will
+still report `content matches source` failures, because they genuinely differ from the source.
+`skill-land` reports the difference and does not guess which side is right.
 
 Tested against: truncated file, wrong skill in the right place, missing file,
 unwritable destination, and a real `npx skills add` install (correctly reported FAIL).

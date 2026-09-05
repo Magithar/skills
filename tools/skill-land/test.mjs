@@ -60,6 +60,15 @@ for (const n of ["alpha", "beta"]) {
     `---\nname: ${n}\ndescription: fixture\n---\n\n# ${n}\n`);
 }
 
+// A skill is a directory. This one has siblings SKILL.md references.
+const multi = join(SANDBOX, "multi");
+mkdirSync(join(multi, "pack", "scripts"), { recursive: true });
+mkdirSync(join(multi, "pack", "reference"), { recursive: true });
+writeFileSync(join(multi, "pack", "SKILL.md"),
+  "---\nname: pack\ndescription: multi-file fixture\n---\n\nRun `node scripts/go.mjs`.\n");
+writeFileSync(join(multi, "pack", "scripts", "go.mjs"), "console.log('go');\n");
+writeFileSync(join(multi, "pack", "reference", "notes.md"), "# notes\n");
+
 const empty = join(SANDBOX, "empty");
 mkdirSync(empty, { recursive: true });
 
@@ -140,6 +149,47 @@ t("no SKILL.md anywhere fails",          [empty, "--for", "codex"], 1, /no SKILL
   // and must not have masked the good one
   t("--all still reports the passing skill",
     [manySkills, "--for", "codex", "--all", "--verify"], 1, /alpha\s+OK/);
+}
+
+// A skill is a directory of files. 1.2.0 copied only SKILL.md and called a
+// 1-of-148-file install "verified" — the exact failure this tool exists to catch.
+{
+  t("installs every file in the skill", [multi, "--for", "codex"], 0, /3 files/);
+
+  const dest = join(HOME, ".codex", "skills", "pack");
+  const landed = ["SKILL.md", "scripts/go.mjs", "reference/notes.md"]
+    .filter((f) => existsSync(join(dest, ...f.split("/"))));
+  if (landed.length === 3) { pass++; console.log("  pass  siblings land, not just SKILL.md"); }
+  else { fail++; console.log(`  FAIL  siblings land, not just SKILL.md (got ${landed.join(", ")})`); }
+
+  t("verify passes on a complete install", [multi, "--for", "codex", "--verify"], 0, /3\/3 files/);
+
+  // The regression: SKILL.md intact, a sibling gone. 1.2.0 said "verified".
+  rmSync(join(dest, "scripts", "go.mjs"));
+  t("verify fails when a sibling is missing",
+    [multi, "--for", "codex", "--verify"], 1, /scripts\/go\.mjs/);
+  t("verify reports the file count, not just pass/fail",
+    [multi, "--for", "codex", "--verify"], 1, /2\/3 files/);
+
+  // A directory holding none of the skill is one fact, not N failures.
+  t("reports a wholly absent install as not installed",
+    [multi, "--for", "claude-code", "--verify"], 1, /not installed/);
+
+  t("--dry-run states what it would copy", [multi, "--for", "codex", "--dry-run"], 0, /3 files, .*B/);
+}
+
+// Antigravity is written to three directories, all of which it reads. A skill
+// complete in ONE of them is installed; demanding all three manufactures
+// failures. (This produced two of three false failures on a real install.)
+{
+  run([multi, "--for", "antigravity"]);
+  rmSync(join(HOME, ".gemini", "skills", "pack"), { recursive: true, force: true });
+  t("verify passes when complete in one of several read paths",
+    [multi, "--for", "antigravity", "--verify"], 0, /that is an install/);
+
+  // But installing still demands every path it just wrote to.
+  t("install still requires all paths",
+    [multi, "--for", "antigravity", "--verify", "--project"], 1, /not installed/);
 }
 
 // A skill reachable only through a symlink must still be found.
