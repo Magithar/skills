@@ -2,7 +2,7 @@
 
 Skills and repo tooling. [`skill-land`](tools/skill-land/CHANGELOG.md) versions separately.
 
-## Unreleased
+## 0.3.1
 
 ### Fixed
 - **CI never ran the `skill-land` tests.** `check.yml` had two jobs, `manifest` and `evidence-loop`.
