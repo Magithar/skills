@@ -407,6 +407,7 @@ function runSkill(skillPath, root, quiet) {
   }
 
   const bad = [];
+  const baseSummaries = [];
   let targetCount = 0;
 
   for (const agent of targets) {
@@ -453,7 +454,11 @@ function runSkill(skillPath, root, quiet) {
         if (!checks.every((c) => c.pass)) badFiles.push({ target, rel: f.rel, checks });
       }
 
-      baseResults.push({ destDir, badFiles, passed: badFiles.length === 0 });
+      const absent = badFiles.length === files.length
+        && badFiles.every((b) => b.checks.some((c) => c.name === "file exists" && !c.pass));
+      baseResults.push({ destDir, badFiles, passed: badFiles.length === 0, absent });
+      baseSummaries.push({ destDir, passed: badFiles.length === 0, absent,
+                           n: files.length - badFiles.length });
     }
 
     if (!dryRun) {
@@ -475,9 +480,7 @@ function runSkill(skillPath, root, quiet) {
           // Nothing present at all is one fact, not N failures. Listing every
           // absent file buries the directories that are partially installed,
           // which are the ones worth looking at.
-          const absent = r.badFiles.length === files.length
-            && r.badFiles.every((b) => b.checks.some((c) => c.name === "file exists" && !c.pass));
-          if (absent) {
+          if (r.absent) {
             console.log(`    FAIL  ${r.destDir}  not installed${verifyOnly ? "  (verify only)" : ""}`);
             continue;
           }
@@ -505,11 +508,11 @@ function runSkill(skillPath, root, quiet) {
     const nf = `${files.length} file${files.length === 1 ? "" : "s"}`;
     if (dryRun) console.log(`--    ${targetCount} target${targetCount === 1 ? "" : "s"}, ${nf} (dry run)`);
     else console.log(`${skillFailed ? "FAIL" : "OK  "}  ${nf}`);
-    for (const b of bad.slice(0, 10)) {
-      console.log(`        x ${b.target}`);
-      for (const c of b.checks) if (!c.pass) console.log(`          ${c.name}: ${c.detail}`);
+    // Per directory, not per file. Flattening 3 paths x 148 files into one list
+    // buries the only thing that is actionable: which directory is wrong, and how.
+    for (const b of baseSummaries.filter((x) => !x.passed)) {
+      console.log(`        x ${b.destDir}  ${b.absent ? "not installed" : `${b.n}/${files.length} files`}`);
     }
-    if (bad.length > 10) console.log(`        ... and ${bad.length - 10} more file(s)`);
   }
   return { name: skillName, failed: skillFailed, skipped: skillSkipped };
 }

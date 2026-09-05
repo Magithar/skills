@@ -144,8 +144,12 @@ t("no SKILL.md anywhere fails",          [empty, "--for", "codex"], 1, /no SKILL
   writeFileSync(target, readFileSync(target, "utf-8").replace("# beta", "# TAMPERED"));
   t("--all fails on one bad skill among many",
     [manySkills, "--for", "codex", "--all", "--verify"], 1, /beta[\s\S]*FAIL/);
+  // Quiet mode names the failing directory and its counts; the per-check reason
+  // (which file, which hash) lives in --verbose. Both must hold.
   t("--all names the failing path",
-    [manySkills, "--for", "codex", "--all", "--verify"], 1, /content matches source/);
+    [manySkills, "--for", "codex", "--all", "--verify"], 1, /\.codex\/skills\/beta\s+0\/1 files/);
+  t("--all --verbose gives the reason",
+    [manySkills, "--for", "codex", "--all", "--verify", "--verbose"], 1, /content matches source/);
   // and must not have masked the good one
   t("--all still reports the passing skill",
     [manySkills, "--for", "codex", "--all", "--verify"], 1, /alpha\s+OK/);

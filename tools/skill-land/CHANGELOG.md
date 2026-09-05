@@ -1,5 +1,27 @@
 # Changelog
 
+## 1.3.1
+
+### Fixed
+- **`--verify --all` printed a flat wall of failing files.** 1.3.0 collapsed a wholly-absent
+  directory to `not installed`, but only on the verbose path; the default `--all` output still
+  listed files one by one across every directory — `... and 323 more file(s)` on a real
+  `~/.agents/skills`. It now reports per directory, which is the actionable unit:
+
+  ```
+  impeccable                    FAIL  148 files
+        x ~/.gemini/config/skills/impeccable        not installed
+        x ~/.gemini/skills/impeccable               111/148 files
+        x ~/.gemini/antigravity-cli/skills/impeccable  not installed
+  ```
+
+  Seven lines instead of three hundred, and it distinguishes absent from partial. `--verbose`
+  still gives the per-file reason.
+
+### Notes
+- Found by running the published 1.3.0 from npm rather than the working tree. The multi-file fix
+  was correct; its output was unreadable on exactly the command the release was built around.
+
 ## 1.3.0
 
 ### Fixed
