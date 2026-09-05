@@ -118,6 +118,30 @@ t("no SKILL.md anywhere fails",          [empty, "--for", "codex"], 1, /no SKILL
   } else { fail++; console.log("  FAIL  disclosure claimed a verdict"); }
 }
 
+// --all: the third arm of the refuse / pick-one decision.
+{
+  t("--all installs every skill", [manySkills, "--for", "codex", "--all"], 0, /alpha[\s\S]*beta/);
+  t("--all reports a count",      [manySkills, "--for", "codex", "--all"], 0, /2 skills, 0 failed/);
+  t("--all and --skill conflict", [manySkills, "--for", "codex", "--all", "--skill", "alpha"], 1,
+    /mutually exclusive/);
+  t("--all verifies what it wrote",
+    [manySkills, "--for", "codex", "--all", "--verify"], 0, /2 skills, 0 failed/);
+  t("--verbose restores per-skill detail",
+    [manySkills, "--for", "codex", "--all", "--verify", "--verbose"], 0, /\(verify only\)/);
+
+  // The whole point: one bad skill among several must fail the run and name
+  // itself, not hide inside an aggregate that still exits 0.
+  const target = join(HOME, ".codex", "skills", "beta", "SKILL.md");
+  writeFileSync(target, readFileSync(target, "utf-8").replace("# beta", "# TAMPERED"));
+  t("--all fails on one bad skill among many",
+    [manySkills, "--for", "codex", "--all", "--verify"], 1, /beta[\s\S]*FAIL/);
+  t("--all names the failing path",
+    [manySkills, "--for", "codex", "--all", "--verify"], 1, /content matches source/);
+  // and must not have masked the good one
+  t("--all still reports the passing skill",
+    [manySkills, "--for", "codex", "--all", "--verify"], 1, /alpha\s+OK/);
+}
+
 // A skill reachable only through a symlink must still be found.
 {
   const linked = join(SANDBOX, "linked");

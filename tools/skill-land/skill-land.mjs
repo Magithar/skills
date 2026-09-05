@@ -120,12 +120,23 @@ function selectSkill(root, wanted) {
     const shown = named.slice(0, 15).map((n) => `           ${n.name.padEnd(28)} ${n.path.replace(root, ".")}`);
     die(
       `${named.length} skills found in ${root}; refusing to guess.\n` +
-      `         Pick one with --skill <name>:\n` +
+      `         Pick one with --skill <name>, or --all for every one of them:\n` +
       shown.join("\n") +
       (named.length > 15 ? `\n           ... and ${named.length - 15} more` : "")
     );
   }
   return named[0].path;
+}
+
+// --all is the third arm of the same decision: refuse, pick one, or take them
+// all. Deliberately never the default — silently installing 78 skills because
+// a source happened to contain them is the failure selectSkill() exists to
+// prevent, and --all is the user saying they meant it.
+function selectAll(root) {
+  const hits = findSkills(root);
+  if (!hits.length)
+    die(`no SKILL.md found under ${root}\n         searched ${MAX_DEPTH} levels deep`);
+  return hits;
 }
 
 function parseFrontmatter(text) {
@@ -287,6 +298,141 @@ function verify(target, expected) {
   return checks;
 }
 
+// ---------------------------------------------------------------- per skill
+
+// One skill, every target path: scan, disclose, write, read back. Factored out
+// of main so --all is a loop over it rather than a second code path — the
+// single-skill output is unchanged, byte for byte.
+//
+// Returns what the caller needs to summarise: how many targets failed
+// verification, and whether --strict refused this one.
+function runSkill(skillPath, root, quiet) {
+  let skillFailed = 0;
+  let skillSkipped = false;
+  const body = readFileSync(skillPath, "utf-8");
+  const fm = parseFrontmatter(body);
+  const skillName = (fm.name || "skill").toLowerCase().replace(/[^a-z0-9._-]+/g, "-");
+  const rawBody = readFileSync(skillPath);
+  const expected = { bytes: rawBody.length, hash: sha256(rawBody), name: fm.name };
+
+  // Scan before any write. A blocked skill must never reach disk.
+  const scan = (skipSecurity || verifyOnly) ? { status: "skipped" } : securityScan(skillPath);
+  const contents = disclose(rawBody.toString("utf-8"));
+  const findings = (scan.top || []).length
+    ? "\n" + scan.top.map((t) => `           ${t}`).join("\n") : "";
+  // Reported, never applied. See securityScan().
+  const baselineNote = scan.baseline
+    ? `\n           NOTE this repo ships a baseline suppressing ${scan.baseline.count} finding(s).`
+    + `\n                Scanned WITHOUT it: a baseline from an untrusted repo can hide real findings.`
+    : "";
+  const SCAN_LINE = {
+    pass:        () => `  security SAFE  ${scan.detail}${baselineNote}`,
+    caution:     () => `  security CAUTION  ${scan.detail}${findings}${baselineNote}`,
+    flagged:     () => `  security FLAGGED  ${scan.detail}${findings}\n           SkillSpector flags ~44% of known-good skills; review, don't just trust it.\n           --strict to refuse installing flagged skills.${baselineNote}`,
+    error:       () => `  security ERROR  ${scan.detail}  — treated as NOT scanned`,
+    unavailable: () => `  security NOT SCANNED  skillspector not on PATH\n           uv tool install git+https://github.com/NVIDIA/skillspector.git`,
+    skipped:     () => `  security NOT SCANNED  --skip-security given`,
+  };
+
+  if (quiet) {
+    process.stdout.write(`  ${(fm.name || basename(dirname(skillPath))).slice(0, 28).padEnd(30)}`);
+  } else {
+  console.log(`\n  source   ${src.label}`);
+  console.log(`  skill    ${fm.name || "(no frontmatter name)"}  [${rawBody.length} bytes, sha ${expected.hash.slice(0,12)}]`);
+  console.log(`  from     ${skillPath.replace(root, ".")}`);
+  }
+  if (!verifyOnly && !quiet) {
+    // Always shown, with or without a scanner. Counts and quotes only.
+    if (contents.length) {
+      console.log("  contains");
+      for (const c of contents) {
+        const more = c.distinct > c.sample.length ? `, +${c.distinct - c.sample.length} more` : "";
+        console.log(`    ${String(c.count).padStart(3)}  ${c.label.padEnd(21)} ${c.sample.join(", ")}${more}`.slice(0, 100));
+      }
+    } else {
+      console.log("  contains  no shell commands, network calls or credential references");
+    }
+    console.log(SCAN_LINE[scan.status]());
+  }
+  if (!quiet) console.log("");
+
+  // Refuse to write a skill the scanner flagged. --force is an explicit,
+  // logged override, never a silent one.
+  if (!verifyOnly && strict && scan.status === "flagged") {
+    if (!quiet)
+      console.error(`\n  error  --strict: SkillSpector reports ${scan.detail}\n         Review the findings above. Drop --strict to install anyway.\n`);
+    else console.log(`SKIP  --strict: ${scan.detail}`);
+    // One flagged skill must not block the clean ones, but the run still fails.
+    return { name: skillName, failed: 0, skipped: true };
+  }
+
+  const bad = [];
+  let targetCount = 0;
+
+  for (const agent of targets) {
+    const a = AGENTS[agent];
+    const bases = isProject
+      ? [resolve(a.project)]
+      : [a.global, ...(a.alsoWrite || [])].map(expand);
+
+    if (!quiet) console.log(`  ${a.display}`);
+
+    for (const base of bases) {
+      const destDir = join(base, skillName);
+      const target = join(destDir, a.file);
+
+      targetCount++;
+      if (dryRun) {
+        if (quiet) continue;
+        console.log(`    would write  ${target}`);
+        continue;
+      }
+
+      // A write that throws is a failed install, not a crash. Report it the
+      // same way as a failed read-back so one exit path covers both.
+      let writeErr = null;
+      if (!verifyOnly) {
+        try {
+          mkdirSync(destDir, { recursive: true });
+          cpSync(skillPath, target);
+        } catch (e) {
+          writeErr = `${e.code || "error"}: ${e.message.split("\n")[0]}`;
+        }
+      }
+
+      const checks = writeErr
+        ? [{ name: "write", pass: false, detail: writeErr }]
+        : verify(target, expected);
+      const passed = checks.every((c) => c.pass);
+      if (!passed) { skillFailed++; bad.push({ target, checks }); }
+
+      if (quiet) continue;
+      console.log(`    ${passed ? "OK  " : "FAIL"}  ${target}${verifyOnly ? "  (verify only)" : ""}`);
+      for (const c of checks) {
+        if (!c.pass) console.log(`            x ${c.name}: ${c.detail}`);
+      }
+    }
+
+    if (quiet) continue;
+    if (!dryRun && a.restart) console.log(`    note  restart ${a.display} fully; skills load at startup`);
+    if (a.broken) console.log(`    note  \`npx skills add -a ${agent} -g\` writes to ~/.agents/skills instead`);
+    console.log();
+  }
+
+  // One line per skill: the counts, then every failing path underneath it. A
+  // summary that hid which path failed would need a second run to be actionable.
+  if (quiet) {
+    const okCount = targetCount - skillFailed;
+    if (dryRun) console.log(`--    ${targetCount} target${targetCount === 1 ? "" : "s"} (dry run)`);
+    else console.log(`${skillFailed ? "FAIL" : "OK  "}  ${okCount}/${targetCount}`);
+    for (const b of bad) {
+      console.log(`        x ${b.target}`);
+      for (const c of b.checks) if (!c.pass) console.log(`          ${c.name}: ${c.detail}`);
+    }
+  }
+  return { name: skillName, failed: skillFailed, skipped: skillSkipped };
+}
+
 // ---------------------------------------------------------------- main
 
 const argv = process.argv.slice(2);
@@ -299,6 +445,8 @@ if (!argv.length || argv.includes("-h") || argv.includes("--help")) {
   Options
     --for <agent>   target agent (repeatable, or comma-separated)
     --skill <name>  which skill, when the source contains several
+    --all           every skill in the source, not just one
+    --verbose       per-skill detail when --all (default: one line each)
     --project       install into ./ instead of the user-global dir
     --dry-run       resolve and report, write nothing
     --verify        check an existing install, write nothing
@@ -339,103 +487,38 @@ const dryRun = flag("--dry-run");
 const verifyOnly = flag("--verify");
 const skipSecurity = flag("--skip-security");
 const strict = flag("--strict");
+const allSkills = flag("--all");
+const verbose = flag("--verbose");
+
+// --skill names one, --all takes every one. Asking for both is a contradiction
+// about intent, not something to resolve by precedence.
+if (allSkills && values("--skill").length)
+  die("--all and --skill are mutually exclusive: --skill names one, --all takes every one");
 
 const src = resolveSource(source);
 const tmp = mkdtempSync(join(tmpdir(), "skill-install-"));
 let failed = 0;
+const skipped = [];
 
 try {
   const root = fetchSource(src, tmp);
-  const skillPath = selectSkill(root, values("--skill")[0]);
-  const body = readFileSync(skillPath, "utf-8");
-  const fm = parseFrontmatter(body);
-  const skillName = (fm.name || "skill").toLowerCase().replace(/[^a-z0-9._-]+/g, "-");
-  const rawBody = readFileSync(skillPath);
-  const expected = { bytes: rawBody.length, hash: sha256(rawBody), name: fm.name };
+  const skillPaths = allSkills ? selectAll(root) : [selectSkill(root, values("--skill")[0])];
 
-  // Scan before any write. A blocked skill must never reach disk.
-  const scan = skipSecurity ? { status: "skipped" } : securityScan(skillPath);
-  const contents = disclose(rawBody.toString("utf-8"));
-  const findings = (scan.top || []).length
-    ? "\n" + scan.top.map((t) => `           ${t}`).join("\n") : "";
-  // Reported, never applied. See securityScan().
-  const baselineNote = scan.baseline
-    ? `\n           NOTE this repo ships a baseline suppressing ${scan.baseline.count} finding(s).`
-    + `\n                Scanned WITHOUT it: a baseline from an untrusted repo can hide real findings.`
-    : "";
-  const SCAN_LINE = {
-    pass:        () => `  security SAFE  ${scan.detail}${baselineNote}`,
-    caution:     () => `  security CAUTION  ${scan.detail}${findings}${baselineNote}`,
-    flagged:     () => `  security FLAGGED  ${scan.detail}${findings}\n           SkillSpector flags ~44% of known-good skills; review, don't just trust it.\n           --strict to refuse installing flagged skills.${baselineNote}`,
-    error:       () => `  security ERROR  ${scan.detail}  — treated as NOT scanned`,
-    unavailable: () => `  security NOT SCANNED  skillspector not on PATH\n           uv tool install git+https://github.com/NVIDIA/skillspector.git`,
-    skipped:     () => `  security NOT SCANNED  --skip-security given`,
-  };
+  // With --all the per-skill detail becomes a wall nobody reads, and an unread
+  // report verifies nothing. Collapse to one line each unless asked otherwise.
+  const quiet = allSkills && !verbose;
+  if (quiet) console.log(`\n  source   ${src.label}\n  skills   ${skillPaths.length} found`);
 
-  console.log(`\n  source   ${src.label}`);
-  console.log(`  skill    ${fm.name || "(no frontmatter name)"}  [${rawBody.length} bytes, sha ${expected.hash.slice(0,12)}]`);
-  console.log(`  from     ${skillPath.replace(root, ".")}`);
-  if (!verifyOnly) {
-    // Always shown, with or without a scanner. Counts and quotes only.
-    if (contents.length) {
-      console.log("  contains");
-      for (const c of contents) {
-        const more = c.distinct > c.sample.length ? `, +${c.distinct - c.sample.length} more` : "";
-        console.log(`    ${String(c.count).padStart(3)}  ${c.label.padEnd(21)} ${c.sample.join(", ")}${more}`.slice(0, 100));
-      }
-    } else {
-      console.log("  contains  no shell commands, network calls or credential references");
-    }
-    console.log(SCAN_LINE[scan.status]());
-  }
-  console.log("");
-
-  // Refuse to write a skill the scanner flagged. --force is an explicit,
-  // logged override, never a silent one.
-  if (!verifyOnly && strict && scan.status === "flagged") {
-    die(`--strict: SkillSpector reports ${scan.detail}\n         Review the findings above. Drop --strict to install anyway.`);
+  for (const skillPath of skillPaths) {
+    const r = runSkill(skillPath, root, quiet);
+    failed += r.failed;
+    if (r.skipped) skipped.push(r.name);
   }
 
-  for (const agent of targets) {
-    const a = AGENTS[agent];
-    const bases = isProject
-      ? [resolve(a.project)]
-      : [a.global, ...(a.alsoWrite || [])].map(expand);
-
-    console.log(`  ${a.display}`);
-
-    for (const base of bases) {
-      const destDir = join(base, skillName);
-      const target = join(destDir, a.file);
-
-      if (dryRun) { console.log(`    would write  ${target}`); continue; }
-
-      // A write that throws is a failed install, not a crash. Report it the
-      // same way as a failed read-back so one exit path covers both.
-      let writeErr = null;
-      if (!verifyOnly) {
-        try {
-          mkdirSync(destDir, { recursive: true });
-          cpSync(skillPath, target);
-        } catch (e) {
-          writeErr = `${e.code || "error"}: ${e.message.split("\n")[0]}`;
-        }
-      }
-
-      const checks = writeErr
-        ? [{ name: "write", pass: false, detail: writeErr }]
-        : verify(target, expected);
-      const passed = checks.every((c) => c.pass);
-      if (!passed) failed++;
-
-      console.log(`    ${passed ? "OK  " : "FAIL"}  ${target}${verifyOnly ? "  (verify only)" : ""}`);
-      for (const c of checks) {
-        if (!c.pass) console.log(`            x ${c.name}: ${c.detail}`);
-      }
-    }
-
-    if (!dryRun && a.restart) console.log(`    note  restart ${a.display} fully; skills load at startup`);
-    if (a.broken) console.log(`    note  \`npx skills add -a ${agent} -g\` writes to ~/.agents/skills instead`);
+  if (allSkills) {
+    const n = skillPaths.length;
+    console.log(`  ${n} skill${n === 1 ? "" : "s"}, ${failed} failed${skipped.length ? `, ${skipped.length} skipped by --strict` : ""}`);
+    if (skipped.length) console.log(`  skipped  ${skipped.join(", ")}`);
     console.log();
   }
 } finally {
