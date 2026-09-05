@@ -128,8 +128,13 @@ npx skill-land ~/.agents/skills --for antigravity --verify --all   # audit every
 ```
 
 `--verify --all` answers a question nothing else in the ecosystem does: are the skills you already
-installed where the agent actually reads, whatever put them there? It compares hashes, not sizes —
-run against a real `~/.agents/skills` it found a file of identical byte length and a different hash.
+installed where the agent actually reads, whatever put them there? A skill is a directory, so it
+checks every file — `impeccable` ships 148, and an install holding only `SKILL.md` leaves every
+`node .../scripts/context.mjs` reference dangling.
+
+It reports differences rather than judging them. An installer that **rewrites** on install (the
+`skills` CLI adapts paths and command prefixes per agent) produces files that are correct and still
+differ from source; `skill-land` says so and leaves the call to you.
 
 Published as [`skill-land`](https://www.npmjs.com/package/skill-land) on npm.
 Source and docs: [tools/skill-land/](tools/skill-land/README.md).

@@ -22,6 +22,11 @@ Skills and repo tooling. [`skill-land`](tools/skill-land/CHANGELOG.md) versions 
   `NODE_AUTH_TOKEN`, and got `404` on `PUT`. Fixed by configuring the publisher on npmjs.com;
   `skill-land` 1.2.0 is the first release this workflow has actually produced, with signed
   provenance.
+- **`skill-land` 1.3.0** fixes a bug of the same shape as the one above: it copied and verified
+  `SKILL.md` alone, so a 1-of-148-file install of `impeccable` reported "verified". Found by
+  running 1.2.0's own `--verify --all` against a real `~/.agents/skills` and checking all three
+  failures it reported — every one was false. See
+  [tools/skill-land/CHANGELOG.md](tools/skill-land/CHANGELOG.md).
 - **Antigravity's global skill directories are now live-verified**, not inferred: a canary skill in
   each candidate directory, then `agy -p "/skills"` from a neutral workspace on `agy` 1.1.27.
   `~/.gemini/config/skills`, `~/.gemini/skills` and `~/.gemini/antigravity-cli/skills` are read;
