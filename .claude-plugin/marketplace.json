@@ -21,6 +21,20 @@
       ]
     },
     {
+      "name": "agent-board",
+      "source": {
+        "source": "github",
+        "repo": "Magithar/agent-board"
+      },
+      "description": "A task board several coding agents share. Claude tools, a live pane and lease heartbeats over one CLI that Codex and others use too.",
+      "category": "engineering",
+      "keywords": [
+        "multi-agent",
+        "task-board",
+        "coordination"
+      ]
+    },
+    {
       "name": "magithar-skills",
       "source": "./",
       "description": "Magithar's agent skills. Each skill is a plain SKILL.md and runs on Claude Code, Codex and Antigravity.",
