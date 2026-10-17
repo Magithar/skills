@@ -554,8 +554,11 @@ function discover(agent, names) {
   let missing = 0;
   for (const n of names) {
     const found = hasName(out, n);
-    if (!found) missing++;
-    console.log(`    ${found ? "OK  " : "FAIL"}  ${n}  ${found ? "listed" : "not in the skill list of a fresh session"}`);
+    // Listed but switched off is not loaded. Gemini CLI prints `name [Disabled]`.
+    const disabled = found && new RegExp(`(^|\\s)${n.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")} \\[Disabled\\]`, "m").test(out);
+    const ok = found && !disabled;
+    if (!ok) missing++;
+    console.log(`    ${ok ? "OK  " : "FAIL"}  ${n}  ${disabled ? "listed but disabled" : found ? "listed" : "not in the skill list of a fresh session"}`);
   }
   if (!a.discover.deterministic)
     console.log(`    note  ${a.display} has no plain skill listing; this asks the model, so treat a FAIL as a lead, not proof`);
@@ -582,7 +585,7 @@ if (!argv.length || argv.includes("-h") || argv.includes("--help")) {
     --dry-run       resolve and report, write nothing
     --verify        check an existing install, write nothing
     --discover      also ask a fresh agent session to list its skills
-                    (claude-code, codex, antigravity; others: not checked)
+                    (claude-code, codex, gemini-cli, antigravity; others: not checked)
     --skip-security skip the SkillSpector scan (acknowledged, not silent)
     --strict        refuse to install anything SkillSpector flags
     --list          show known agents and their directories

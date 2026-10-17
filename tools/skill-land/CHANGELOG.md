@@ -1,5 +1,19 @@
 # Changelog
 
+## 1.5.0
+
+### Added
+- **`--discover` covers Gemini CLI.** It uses `gemini skills list`, a real skill listing with no
+  model call, so a result is proof and not a lead. Antigravity was the only other agent with one.
+- **A skill that is listed but disabled now fails.** Gemini CLI prints `name [Disabled]` for a
+  skill that is on disk and discovered but switched off. That is a loading problem the file
+  checks cannot see, and the case the flag exists for.
+
+### Notes
+- Tested against real Gemini CLI 0.64.0 with real skills from git, including a skill disabled with
+  `gemini skills disable`. Asked for by a reader who wanted to know whether the probe was
+  Claude Code-specific.
+
 ## 1.4.0
 
 ### Added

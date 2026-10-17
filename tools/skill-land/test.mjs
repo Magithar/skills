@@ -245,6 +245,15 @@ t("no SKILL.md anywhere fails",          [empty, "--for", "codex"], 1, /no SKILL
   go([oneSkill, "--for", "codex", "--discover"], 1, /FAIL\s+demo\s+not in the skill list/,
      "--discover does not match a name prefix");
 
+  // Gemini CLI lists skills with a state. On disk and listed but [Disabled] is not loaded.
+  fake("gemini", `echo "demo [Disabled]"; echo "  Location: /x"`);
+  run([oneSkill, "--for", "gemini-cli"]);
+  go([oneSkill, "--for", "gemini-cli", "--discover"], 1, /FAIL\s+demo\s+listed but disabled/,
+     "--discover fails a skill that is listed but disabled");
+  fake("gemini", `echo "demo [Enabled]"; echo "  Location: /x"`);
+  go([oneSkill, "--for", "gemini-cli", "--discover"], 0, /OK\s+demo\s+listed/,
+     "--discover passes a skill that is listed and enabled");
+
   // --project installs into cwd, so run it from the sandbox, not the repo.
   const rp = run([oneSkill, "--for", "codex", "--discover", "--project"], { path, cwd: SANDBOX });
   if (rp.code === 0 && /--discover is skipped with --project/.test(rp.out)) { pass++; console.log("  pass  --discover is skipped with --project"); }

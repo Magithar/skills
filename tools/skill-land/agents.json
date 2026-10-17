@@ -77,7 +77,15 @@
       "project": ".agents/skills",
       "file": "SKILL.md",
       "restart": false,
-      "broken": true
+      "broken": true,
+      "discover": {
+        "cmd": [
+          "gemini",
+          "skills",
+          "list"
+        ],
+        "deterministic": true
+      }
     },
     "cursor": {
       "display": "Cursor",

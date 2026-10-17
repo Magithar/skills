@@ -61,7 +61,7 @@ npx skill-land <source> --for <agent> [options]
 | `--project` | install into `./` instead of the user-global directory |
 | `--dry-run` | resolve and report, write nothing |
 | `--verify` | check an existing install, write nothing |
-| `--discover` | also ask a fresh agent session to list its skills (claude-code, codex, antigravity) |
+| `--discover` | also ask a fresh agent session to list its skills (claude-code, codex, gemini-cli, antigravity) |
 | `--skip-security` | skip the SkillSpector scan (acknowledged, not silent) |
 | `--strict` | refuse to install anything SkillSpector flags |
 | `--list` | show known agents and their directories |
@@ -148,10 +148,11 @@ skill-land Magithar/SKILLmama --for codex,antigravity --discover
 | Agent | Listing used | Kind |
 |---|---|---|
 | Antigravity | `agy -p /skills` | a real skill list |
+| Gemini CLI | `gemini skills list` | a real skill list, with enabled/disabled state |
 | Codex | `codex exec "list your skills"` | asks the model |
 | Claude Code | `claude -p "list your skills"` | asks the model |
 
-Each was tested by planting a uniquely named canary skill and confirming it appeared. Every other
+Each was tested by planting a uniquely named canary skill and confirming it appeared, then with real skills from git. A skill that is listed but switched off (Gemini CLI prints `[Disabled]`) fails: on disk and listed is not the same as loaded. Every other
 agent reports `NOT CHECKED`, never a pass: an unknown is not a success. A missing binary or a
 timeout is also `NOT CHECKED`; only a completed listing that lacks the skill fails the run.
 
