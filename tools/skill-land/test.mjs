@@ -7,7 +7,7 @@
 // Writes only inside a temp HOME, never the caller's real skill directories.
 
 import { execFileSync } from "child_process";
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync, existsSync, readFileSync } from "fs";
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync, existsSync, readFileSync, chmodSync } from "fs";
 import { tmpdir } from "os";
 import { dirname, join } from "path";
 import { fileURLToPath } from "url";
@@ -24,9 +24,9 @@ function run(args, opts = {}) {
   try {
     const stdout = execFileSync(process.execPath, [CLI, ...args], {
       encoding: "utf-8",
-      env: { ...process.env, HOME, PATH: process.env.PATH },
+      env: { ...process.env, HOME, PATH: opts.path || process.env.PATH },
       stdio: ["ignore", "pipe", "pipe"],
-      ...opts,
+      ...{ ...opts, path: undefined },
     });
     return { code: 0, out: stdout };
   } catch (e) {
@@ -202,6 +202,58 @@ t("no SKILL.md anywhere fails",          [empty, "--for", "codex"], 1, /no SKILL
   mkdirSync(join(linked, "s"), { recursive: true });
   execFileSync("ln", ["-s", join(oneSkill, "nested", "demo", "SKILL.md"), join(linked, "s", "SKILL.md")]);
   t("finds a symlinked SKILL.md", [linked, "--for", "codex", "--dry-run"], 0, /would write/);
+}
+
+// --discover asks a fresh session what it sees. Fake agent binaries stand in for
+// the real ones: `codex` lists whatever is in ~/.codex/skills, `agy` lists nothing.
+// Never calls a real agent, never touches the caller's directories.
+{
+  const bin = join(SANDBOX, "bin");
+  mkdirSync(bin, { recursive: true });
+  const fake = (name, body) => {
+    writeFileSync(join(bin, name), `#!/bin/sh\n${body}\n`);
+    chmodSync(join(bin, name), 0o755);
+  };
+  fake("codex", `ls "$HOME/.codex/skills"`);
+  fake("agy", `echo "some-other-skill\tunrelated"`);
+  const path = `${bin}:${process.env.PATH}`;
+  const go = (args, code, re, label) => {
+    const r = run(args, { path });
+    if (r.code === code && re.test(r.out)) { pass++; console.log(`  pass  ${label}`); }
+    else { fail++; console.log(`  FAIL  ${label}\n          exit ${r.code}, expected ${code}\n` +
+      r.out.split("\n").map((l) => "          " + l).join("\n")); }
+  };
+
+  run([manySkills, "--for", "codex", "--all"]);
+  go([manySkills, "--for", "codex", "--all", "--discover"], 0, /OK\s+alpha\s+listed[\s\S]*OK\s+beta\s+listed/,
+     "--discover passes when a fresh session lists the skills");
+
+  fake("codex", `echo alpha`);
+  go([manySkills, "--for", "codex", "--all", "--discover"], 1, /FAIL\s+beta\s+not in the skill list/,
+     "--discover fails when the session does not list a skill");
+
+  run([oneSkill, "--for", "antigravity"]);
+  go([oneSkill, "--for", "antigravity", "--discover"], 1, /FAIL\s+demo\s+not in the skill list/,
+     "--discover catches an agent that ignores the install");
+
+  fake("codex", `ls "$HOME/.codex/skills"`);
+  go([oneSkill, "--for", "codex,cursor", "--discover"], 0, /NOT CHECKED\s+no known non-interactive/,
+     "agents without a listing report not checked, not pass");
+
+  // A listing that merely contains the name as a prefix must not match.
+  fake("codex", `echo "demo-extra"`);
+  go([oneSkill, "--for", "codex", "--discover"], 1, /FAIL\s+demo\s+not in the skill list/,
+     "--discover does not match a name prefix");
+
+  // --project installs into cwd, so run it from the sandbox, not the repo.
+  const rp = run([oneSkill, "--for", "codex", "--discover", "--project"], { path, cwd: SANDBOX });
+  if (rp.code === 0 && /--discover is skipped with --project/.test(rp.out)) { pass++; console.log("  pass  --discover is skipped with --project"); }
+  else { fail++; console.log("  FAIL  --discover is skipped with --project\n" + rp.out); }
+
+  // Missing binary is an unknown, not a failure.
+  const r = run([oneSkill, "--for", "claude-code", "--discover"], { path: "/usr/bin:/bin" });
+  if (r.code === 0 && /NOT CHECKED\s+claude not on PATH/.test(r.out)) { pass++; console.log("  pass  a missing agent binary is not checked, not failed"); }
+  else { fail++; console.log("  FAIL  a missing agent binary is not checked, not failed\n" + r.out); }
 }
 
 rmSync(SANDBOX, { recursive: true, force: true });

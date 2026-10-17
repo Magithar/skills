@@ -7,7 +7,15 @@
       "project": ".claude/skills",
       "file": "SKILL.md",
       "restart": false,
-      "broken": false
+      "broken": false,
+      "discover": {
+        "cmd": [
+          "claude",
+          "-p",
+          "List the names of all skills available to you, one per line. Output only names."
+        ],
+        "deterministic": false
+      }
     },
     "codex": {
       "display": "OpenAI Codex",
@@ -15,7 +23,16 @@
       "project": ".agents/skills",
       "file": "SKILL.md",
       "restart": false,
-      "broken": true
+      "broken": true,
+      "discover": {
+        "cmd": [
+          "codex",
+          "exec",
+          "--skip-git-repo-check",
+          "List the names of all skills available to you, one per line. Output only names."
+        ],
+        "deterministic": false
+      }
     },
     "antigravity": {
       "_paths": "LIVE VERIFIED against agy 1.1.27 on 2026-09-05: a uniquely-named canary skill was planted in each candidate directory and `agy -p /skills` run from a neutral workspace. Read as global: ~/.gemini/config/skills, ~/.gemini/skills, ~/.gemini/antigravity-cli/skills — matching the maintainer statement in google-antigravity/antigravity-cli#103 comment 5547952239. NOT read: ~/.agents/skills (appears only when its parent is the active workspace, i.e. `--add-dir $HOME`, which is project-local behavior, not global) and ~/.gemini/antigravity/skills (app.asar defines ~/.gemini/antigravity as IDE_OLD_DATA_DIR, the legacy IDE data dir migrating to ~/.gemini/antigravity-ide; never a skills root). Project dir .agents/skills is read only when the directory is a registered workspace — cwd alone was not enough; .antigravity/skills and .agy/skills are not read at all. language_server hardcodes no .gemini/*/skills literal: skills_paths is a repeated protobuf field the client fills in.",
@@ -28,7 +45,15 @@
       "project": ".agents/skills",
       "file": "SKILL.md",
       "restart": true,
-      "broken": true
+      "broken": true,
+      "discover": {
+        "cmd": [
+          "agy",
+          "-p",
+          "/skills"
+        ],
+        "deterministic": true
+      }
     },
     "antigravity-cli": {
       "display": "Antigravity CLI",
@@ -36,7 +61,15 @@
       "project": ".agents/skills",
       "file": "SKILL.md",
       "restart": true,
-      "broken": true
+      "broken": true,
+      "discover": {
+        "cmd": [
+          "agy",
+          "-p",
+          "/skills"
+        ],
+        "deterministic": true
+      }
     },
     "gemini-cli": {
       "display": "Gemini CLI",

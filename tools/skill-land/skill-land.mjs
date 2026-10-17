@@ -514,7 +514,54 @@ function runSkill(skillPath, root, quiet) {
       console.log(`        x ${b.destDir}  ${b.absent ? "not installed" : `${b.n}/${files.length} files`}`);
     }
   }
-  return { name: skillName, failed: skillFailed, skipped: skillSkipped };
+  return { name: skillName, fmName: fm.name, failed: skillFailed, skipped: skillSkipped };
+}
+
+// ---------------------------------------------------------------- discover
+
+// --verify proves the bytes are on disk. It cannot prove the agent loads them:
+// the agent may need a restart, reject the frontmatter, or read the directory
+// only in some workspaces. --discover asks a fresh, non-interactive session what
+// skills it sees. Run from a neutral cwd so a project-local skills directory
+// cannot make a missing global install look found.
+//
+// Only agents with a `discover` entry in agents.json were checked this way, and
+// each was tested with a planted canary. The rest report "not checked" rather
+// than pass: an unknown is not a success.
+const hasName = (out, name) =>
+  new RegExp(`(^|[^\\w-])${name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}($|[^\\w-])`, "m").test(out);
+
+function discover(agent, names) {
+  const a = AGENTS[agent];
+  console.log(`  ${a.display}`);
+  if (!a.discover) {
+    console.log(`    NOT CHECKED  no known non-interactive skill listing for ${a.display}\n`);
+    return 0;
+  }
+  const [bin, ...args] = a.discover.cmd;
+  const cwd = mkdtempSync(join(tmpdir(), "skill-land-discover-"));
+  let out;
+  try {
+    out = execFileSync(bin, args, { cwd, encoding: "utf-8", timeout: 180000,
+                                    stdio: ["ignore", "pipe", "pipe"] });
+  } catch (e) {
+    const why = e.code === "ENOENT" ? `${bin} not on PATH` : (e.message.split("\n")[0]);
+    console.log(`    NOT CHECKED  ${why}\n`);
+    return 0;
+  } finally {
+    rmSync(cwd, { recursive: true, force: true });
+  }
+  let missing = 0;
+  for (const n of names) {
+    const found = hasName(out, n);
+    if (!found) missing++;
+    console.log(`    ${found ? "OK  " : "FAIL"}  ${n}  ${found ? "listed" : "not in the skill list of a fresh session"}`);
+  }
+  if (!a.discover.deterministic)
+    console.log(`    note  ${a.display} has no plain skill listing; this asks the model, so treat a FAIL as a lead, not proof`);
+  if (missing && a.restart) console.log(`    note  restart ${a.display} fully; skills load at startup`);
+  console.log();
+  return missing;
 }
 
 // ---------------------------------------------------------------- main
@@ -534,6 +581,8 @@ if (!argv.length || argv.includes("-h") || argv.includes("--help")) {
     --project       install into ./ instead of the user-global dir
     --dry-run       resolve and report, write nothing
     --verify        check an existing install, write nothing
+    --discover      also ask a fresh agent session to list its skills
+                    (claude-code, codex, antigravity; others: not checked)
     --skip-security skip the SkillSpector scan (acknowledged, not silent)
     --strict        refuse to install anything SkillSpector flags
     --list          show known agents and their directories
@@ -570,6 +619,7 @@ for (const t of targets) if (!AGENTS[t]) die(`unknown agent "${t}"\n         kno
 const isProject = flag("--project");
 const dryRun = flag("--dry-run");
 const verifyOnly = flag("--verify");
+const discoverFlag = flag("--discover");
 const skipSecurity = flag("--skip-security");
 const strict = flag("--strict");
 const allSkills = flag("--all");
@@ -584,6 +634,7 @@ const src = resolveSource(source);
 const tmp = mkdtempSync(join(tmpdir(), "skill-install-"));
 let failed = 0;
 const skipped = [];
+const landed = [];
 
 try {
   const root = fetchSource(src, tmp);
@@ -598,6 +649,7 @@ try {
     const r = runSkill(skillPath, root, quiet);
     failed += r.failed;
     if (r.skipped) skipped.push(r.name);
+    else if (!r.failed) landed.push(r.fmName || r.name);
   }
 
   if (allSkills) {
@@ -608,6 +660,17 @@ try {
   }
 } finally {
   rmSync(tmp, { recursive: true, force: true });
+}
+
+// Once per agent, not per skill: a listing is one session however many skills.
+// Only skills that passed file verification are looked up; a skill that never
+// landed would just produce a second, redundant failure.
+if (discoverFlag && !dryRun) {
+  if (isProject) console.log("  --discover is skipped with --project: the listing runs from a neutral directory\n");
+  else if (landed.length) {
+    console.log("  discovery  fresh session, neutral directory\n");
+    for (const t of targets) failed += discover(t, landed);
+  }
 }
 
 if (failed) {

@@ -61,6 +61,7 @@ npx skill-land <source> --for <agent> [options]
 | `--project` | install into `./` instead of the user-global directory |
 | `--dry-run` | resolve and report, write nothing |
 | `--verify` | check an existing install, write nothing |
+| `--discover` | also ask a fresh agent session to list its skills (claude-code, codex, antigravity) |
 | `--skip-security` | skip the SkillSpector scan (acknowledged, not silent) |
 | `--strict` | refuse to install anything SkillSpector flags |
 | `--list` | show known agents and their directories |
@@ -132,6 +133,30 @@ of only its `SKILL.md` leaves every `node .../scripts/context.mjs` reference dan
 Where an agent has several directories it reads, `--verify` counts the skill as installed if
 it is **complete in any one of them**. Requiring every fallback to hold a copy reports
 working installs as broken.
+
+### Does the agent actually load it? `--discover`
+
+Everything above proves the bytes are on disk. It does not prove the agent loads them: it may
+need a restart, reject the frontmatter, or read the directory only in some workspaces.
+`--discover` starts a fresh non-interactive session from a neutral directory and checks that the
+skill name appears in what the agent says it can see.
+
+```bash
+skill-land Magithar/SKILLmama --for codex,antigravity --discover
+```
+
+| Agent | Listing used | Kind |
+|---|---|---|
+| Antigravity | `agy -p /skills` | a real skill list |
+| Codex | `codex exec "list your skills"` | asks the model |
+| Claude Code | `claude -p "list your skills"` | asks the model |
+
+Each was tested by planting a uniquely named canary skill and confirming it appeared. Every other
+agent reports `NOT CHECKED`, never a pass: an unknown is not a success. A missing binary or a
+timeout is also `NOT CHECKED`; only a completed listing that lacks the skill fails the run.
+
+The Codex and Claude Code listings go through the model, so they cost an API call and a `FAIL`
+is a lead to investigate, not proof. It is opt-in for that reason, and skipped with `--project`.
 
 ### What it cannot tell you
 

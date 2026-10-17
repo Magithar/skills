@@ -1,5 +1,20 @@
 # Changelog
 
+## 1.4.0
+
+### Added
+- **`--discover`: check that a fresh agent session actually lists the skill.** `--verify` proves
+  the file is in the right place, byte for byte. It cannot catch an agent that reads the
+  directory but does not load the skill, or one that needs a restart. `--discover` runs a
+  non-interactive session from a neutral directory and checks the skill name is in its list.
+  Covers Antigravity (`agy -p /skills`, a real listing), Codex and Claude Code (ask the model).
+  Each was tested with a planted canary skill. All other agents report `NOT CHECKED`, which is
+  not a pass. Opt-in, because the Codex and Claude Code listings cost an API call.
+
+### Notes
+- Suggested by a reader asking whether verification covers discovery. It did not; the README's
+  "verified" now says what it means.
+
 ## 1.3.1
 
 ### Fixed
