@@ -1,5 +1,27 @@
 # Changelog
 
+## 1.6.0
+
+### Added
+- **A first-run welcome.** The first time someone runs skill-land in a terminal, it shows a
+  striped SKILL-LAND wordmark fading from mint to brand emerald (#59C378), the tagline, version
+  and credit. Once per machine (a marker in `~/.config/skill-land`), never in piped output or CI,
+  plain text under 80 columns, no color with `NO_COLOR`. Terminals without 24-bit color get the
+  same fade from the 256-color palette.
+- **`skill-land` with no arguments is a getting-started guide**: pick an agent, install, verify.
+  The full option list moved to `--help` only.
+
+### Changed
+- **Install results are colored in a terminal.** `OK` and `✓ verified` in emerald, `FAIL` and
+  `✗ … failed verification` in red. Piped output stays plain, so scripts matching on the words
+  are unaffected.
+- **The run ends by saying what is ready**: `✓ verified  dep-egress is ready for Claude Code`,
+  instead of a bare `verified`.
+- **Paths under your home directory print as `~/...`.**
+- **`--list` says what it means.** The `upstream` column is now `npx skills`, and `BROKEN` is
+  `wrong dir`, with a note explaining that `npx skills add -g` writes to `~/.agents/skills`, which
+  those agents never read. It described the other tool, but read as if skill-land were broken.
+
 ## 1.5.0
 
 ### Added

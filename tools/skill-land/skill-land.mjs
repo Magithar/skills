@@ -13,7 +13,7 @@ import { execFileSync } from "child_process";
 import { createHash } from "crypto";
 import {
   cpSync, existsSync, mkdirSync, mkdtempSync, readdirSync,
-  readFileSync, realpathSync, rmSync, statSync,
+  readFileSync, realpathSync, rmSync, statSync, writeFileSync,
 } from "fs";
 import { homedir, tmpdir } from "os";
 import { basename, dirname, join, relative, resolve } from "path";
@@ -27,6 +27,17 @@ const expand = (p) => (p.startsWith("~/") ? join(homedir(), p.slice(2)) : p);
 const fmtBytes = (n) => n < 1024 ? `${n} B`
   : n < 1024 * 1024 ? `${(n / 1024).toFixed(1)} kB` : `${(n / 1024 / 1024).toFixed(1)} MB`;
 const die = (msg) => { console.error(`\n  error  ${msg}\n`); process.exit(1); };
+
+// Status words in color for a person at a terminal; piped output and tests get
+// the plain text, so anything matching on "OK" or "FAIL" is unaffected.
+const COLOR = process.stdout.isTTY && !process.env.NO_COLOR;
+const TRUECOLOR = /truecolor|24bit/i.test(process.env.COLORTERM || "");
+const paintIf = (code) => (s) => COLOR ? `\x1b[${code}m${s}\x1b[0m` : s;
+const emerald = paintIf(TRUECOLOR ? "38;2;89;195;120" : "38;5;78"); // brand emerald #59C378
+const red = paintIf(TRUECOLOR ? "38;2;239;83;80" : "38;5;203");
+const status = (ok) => ok ? emerald("OK  ") : red("FAIL");
+// Paths under the home directory read as ~/..., the way people type them.
+const tilde = (p) => p === homedir() || p.startsWith(homedir() + "/") ? "~" + p.slice(homedir().length) : p;
 
 // ---------------------------------------------------------------- source
 
@@ -377,7 +388,7 @@ function runSkill(skillPath, root, quiet) {
   if (quiet) {
     process.stdout.write(`  ${(fm.name || basename(dirname(skillPath))).slice(0, 28).padEnd(30)}`);
   } else {
-  console.log(`\n  source   ${src.label}`);
+  console.log(`\n  source   ${tilde(src.label)}`);
   console.log(`  skill    ${fm.name || "(no frontmatter name)"}  [${files.length} file${files.length === 1 ? "" : "s"}, ${fmtBytes(totalBytes)}, SKILL.md sha ${files[0].hash.slice(0,12)}]`);
   console.log(`  from     ${skillPath.replace(root, ".")}`);
   }
@@ -426,7 +437,7 @@ function runSkill(skillPath, root, quiet) {
       targetCount++;
       if (dryRun) {
         if (quiet) continue;
-        console.log(`    would write  ${destDir}  (${files.length} file${files.length === 1 ? "" : "s"}, ${fmtBytes(totalBytes)})`);
+        console.log(`    would write  ${tilde(destDir)}  (${files.length} file${files.length === 1 ? "" : "s"}, ${fmtBytes(totalBytes)})`);
         continue;
       }
 
@@ -481,10 +492,10 @@ function runSkill(skillPath, root, quiet) {
           // absent file buries the directories that are partially installed,
           // which are the ones worth looking at.
           if (r.absent) {
-            console.log(`    FAIL  ${r.destDir}  not installed${verifyOnly ? "  (verify only)" : ""}`);
+            console.log(`    ${red("FAIL")}  ${tilde(r.destDir)}  not installed${verifyOnly ? "  (verify only)" : ""}`);
             continue;
           }
-          console.log(`    ${r.passed ? "OK  " : "FAIL"}  ${r.destDir}  ${n}/${files.length} file${files.length === 1 ? "" : "s"}${verifyOnly ? "  (verify only)" : ""}`);
+          console.log(`    ${status(r.passed)}  ${tilde(r.destDir)}  ${n}/${files.length} file${files.length === 1 ? "" : "s"}${verifyOnly ? "  (verify only)" : ""}`);
           for (const b of r.badFiles.slice(0, 10)) {
             console.log(`            x ${b.rel}`);
             for (const c of b.checks) if (!c.pass) console.log(`              ${c.name}: ${c.detail}`);
@@ -507,11 +518,11 @@ function runSkill(skillPath, root, quiet) {
   if (quiet) {
     const nf = `${files.length} file${files.length === 1 ? "" : "s"}`;
     if (dryRun) console.log(`--    ${targetCount} target${targetCount === 1 ? "" : "s"}, ${nf} (dry run)`);
-    else console.log(`${skillFailed ? "FAIL" : "OK  "}  ${nf}`);
+    else console.log(`${status(!skillFailed)}  ${nf}`);
     // Per directory, not per file. Flattening 3 paths x 148 files into one list
     // buries the only thing that is actionable: which directory is wrong, and how.
     for (const b of baseSummaries.filter((x) => !x.passed)) {
-      console.log(`        x ${b.destDir}  ${b.absent ? "not installed" : `${b.n}/${files.length} files`}`);
+      console.log(`        x ${tilde(b.destDir)}  ${b.absent ? "not installed" : `${b.n}/${files.length} files`}`);
     }
   }
   return { name: skillName, fmName: fm.name, failed: skillFailed, skipped: skillSkipped };
@@ -558,7 +569,7 @@ function discover(agent, names) {
     const disabled = found && new RegExp(`(^|\\s)${n.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")} \\[Disabled\\]`, "m").test(out);
     const ok = found && !disabled;
     if (!ok) missing++;
-    console.log(`    ${ok ? "OK  " : "FAIL"}  ${n}  ${disabled ? "listed but disabled" : found ? "listed" : "not in the skill list of a fresh session"}`);
+    console.log(`    ${status(ok)}  ${n}  ${disabled ? "listed but disabled" : found ? "listed" : "not in the skill list of a fresh session"}`);
   }
   if (!a.discover.deterministic)
     console.log(`    note  ${a.display} has no plain skill listing; this asks the model, so treat a FAIL as a lead, not proof`);
@@ -567,10 +578,75 @@ function discover(agent, names) {
   return missing;
 }
 
+// ---------------------------------------------------------------- first run
+
+// Shown once per machine, only to a person at a terminal: piped output, CI logs
+// and the test harness never see it. The marker lives beside nothing else we
+// write, and failing to write it never fails an install.
+// Capitals drawn as scanlines: each "▀" is a bar with a dark gap under it.
+const WORDMARK = [
+  "▀▀▀▀▀▀▀ ▀▀   ▀▀ ▀▀ ▀▀      ▀▀             ▀▀       ▀▀▀▀▀  ▀▀▀    ▀▀ ▀▀▀▀▀▀",
+  "▀▀      ▀▀  ▀▀  ▀▀ ▀▀      ▀▀             ▀▀      ▀▀   ▀▀ ▀▀▀▀   ▀▀ ▀▀   ▀▀",
+  "▀▀▀▀▀▀▀ ▀▀▀▀▀   ▀▀ ▀▀      ▀▀      ▀▀▀▀▀  ▀▀      ▀▀▀▀▀▀▀ ▀▀ ▀▀  ▀▀ ▀▀   ▀▀",
+  "     ▀▀ ▀▀  ▀▀  ▀▀ ▀▀      ▀▀             ▀▀      ▀▀   ▀▀ ▀▀  ▀▀ ▀▀ ▀▀   ▀▀",
+  "▀▀▀▀▀▀▀ ▀▀   ▀▀ ▀▀ ▀▀▀▀▀▀▀ ▀▀▀▀▀▀▀        ▀▀▀▀▀▀▀ ▀▀   ▀▀ ▀▀   ▀▀▀▀ ▀▀▀▀▀▀",
+];
+
+function firstRunBanner() {
+  if (!process.stdout.isTTY || process.env.CI) return;
+  const dir = join(process.env.XDG_CONFIG_HOME || join(homedir(), ".config"), "skill-land");
+  const marker = join(dir, "welcomed");
+  if (existsSync(marker)) return;
+  try { mkdirSync(dir, { recursive: true }); writeFileSync(marker, new Date().toISOString() + "\n"); }
+  catch { return; } // can't remember we showed it, so don't show it on every run
+  const color = !process.env.NO_COLOR;
+  const fit = (process.stdout.columns || 80) >= 80;
+  // Rows fade from light mint at the top to brand emerald #59C378 at the bottom.
+  // Without 24-bit color (macOS Terminal sets no COLORTERM) the same fade uses
+  // the nearest 256-color steps, ending on 78 (#5FD787).
+  const truecolor = /truecolor|24bit/i.test(process.env.COLORTERM || "");
+  const TOP = [200, 245, 214], EMERALD = [89, 195, 120];
+  const FADE_256 = [194, 158, 121, 114, 78];
+  const shade = (r) => !truecolor ? `38;5;${FADE_256[r]}`
+    : "38;2;" + TOP.map((t, i) => Math.round(t + (EMERALD[i] - t) * r / (WORDMARK.length - 1))).join(";");
+  const paint = (code, s) => color ? `\x1b[${code}m${s}\x1b[0m` : s;
+  const green = (s) => paint(shade(WORDMARK.length - 1), s);
+  // Tagline in muted off-white (#B4B4AC; 256-color 249) so it reads on dark backgrounds.
+  const muted = (s) => paint(truecolor ? "38;2;180;180;172" : "38;5;249", s);
+  const dim = (s) => paint("2;" + shade(WORDMARK.length - 1), s);
+  const { version } = JSON.parse(readFileSync(join(HERE, "package.json"), "utf-8"));
+  console.log();
+  if (fit) WORDMARK.forEach((row, r) => console.log("  " + paint(shade(r), row)));
+  else console.log("  " + green("SKILL-LAND"));
+  console.log("\n  " + muted("install skills · where they belong · ") + dim(`v${version}`));
+  // Full https:// URL so every terminal, macOS Terminal included, makes it clickable.
+  console.log("\n  " + muted("made by  ") + green("magithar"));
+  console.log("  " + muted("contact  ") + green("https://x.com/magithar"));
+}
+
 // ---------------------------------------------------------------- main
 
 const argv = process.argv.slice(2);
-if (!argv.length || argv.includes("-h") || argv.includes("--help")) {
+firstRunBanner();
+// Bare `skill-land` is what a newcomer types first: show the three commands that
+// matter, not the whole option reference.
+if (!argv.length) {
+  console.log(`
+  Get started
+
+    1. Pick your agent      skill-land --list
+    2. Install a skill      skill-land owner/repo --for claude-code
+    3. Check it landed      skill-land owner/repo --for claude-code --verify
+
+  Every file is copied, then read back. If anything didn't land,
+  skill-land says so and exits with an error.
+
+  All options: skill-land --help
+`);
+  process.exit(0);
+}
+
+if (argv.includes("-h") || argv.includes("--help")) {
   console.log(`
   skill-land <source> --for <agent> [options]
 
@@ -597,12 +673,13 @@ if (!argv.length || argv.includes("-h") || argv.includes("--help")) {
 }
 
 if (argv.includes("--list")) {
-  console.log("\n  agent             directory                              upstream");
+  console.log("\n  agent             skills directory                       npx skills");
   console.log("  " + "-".repeat(70));
   for (const [k, a] of Object.entries(AGENTS)) {
-    console.log(`  ${k.padEnd(17)} ${a.global.padEnd(38)} ${a.broken ? "BROKEN" : "ok"}`);
+    console.log(`  ${k.padEnd(17)} ${a.global.padEnd(38)} ${a.broken ? "wrong dir" : "ok"}`);
   }
-  console.log();
+  console.log("\n  wrong dir  `npx skills add -a <agent> -g` writes to ~/.agents/skills, which");
+  console.log("             this agent never reads. skill-land installs to the directory above.\n");
   process.exit(0);
 }
 
@@ -677,7 +754,15 @@ if (discoverFlag && !dryRun) {
 }
 
 if (failed) {
-  console.error(`  ${failed} install(s) failed verification\n`);
+  console.error(`  ${red(`✗ ${failed} install(s) failed verification`)}\n`);
   process.exit(1);
 }
-if (!dryRun) console.log(`  ${verifyOnly ? "verified existing install" : "verified"}\n`);
+// Close on the outcome in plain words: what is ready, and for which agent.
+if (!dryRun) {
+  const verdict = verifyOnly ? "verified existing install" : "verified";
+  const who = targets.map((t) => AGENTS[t].display).join(", ");
+  const what = landed.length === 1 ? `${landed[0]} is` : `${landed.length} skills are`;
+  console.log(landed.length
+    ? `  ${emerald(`✓ ${verdict}`)}  ${what} ${verifyOnly ? "installed" : "ready"} for ${who}\n`
+    : `  ${verdict}\n`);
+}

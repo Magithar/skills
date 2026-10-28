@@ -77,6 +77,8 @@ mkdirSync(empty, { recursive: true });
 console.log("\nskill-land\n");
 
 t("--list shows the agent table",        ["--list"], 0, /claude-code/);
+t("--list names upstream misroutes",     ["--list"], 0, /codex\s+~\/\.codex\/skills\s+wrong dir/);
+t("no arguments shows the quick start",  [], 0, /Get started[\s\S]*skill-land --list/);
 t("--help exits 0",                      ["--help"], 0, /--for <agent>/);
 
 t("installs a skill found nested",       [oneSkill, "--for", "codex"], 0, /OK/);

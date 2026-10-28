@@ -364,3 +364,7 @@ global install, which is what drives the warning note.
 Install and verify only. No registry, no publishing, no per-platform content
 transforms. One `SKILL.md` works across all of these agents; the failure mode here is
 a wrong-path bug, not a content-format problem.
+
+---
+
+Made by [@magithar](https://x.com/magithar). Follow along for new skills and tools.
