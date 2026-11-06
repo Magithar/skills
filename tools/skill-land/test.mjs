@@ -184,6 +184,48 @@ t("no SKILL.md anywhere fails",          [empty, "--for", "codex"], 1, /no SKILL
   t("--dry-run states what it would copy", [multi, "--for", "codex", "--dry-run"], 0, /3 files, .*B/);
 }
 
+// Reinstalling never deletes, so a file dropped from a skill stays on disk. --verify
+// must say so, but only warn: nothing can tell a stale file from one a person added.
+{
+  const check = (label, pass_) => {
+    if (pass_) { pass++; console.log(`  pass  ${label}`); }
+    else { fail++; console.log(`  FAIL  ${label}`); }
+  };
+  run([multi, "--for", "cursor"]);
+  const dest = join(HOME, ".cursor", "skills", "pack");
+
+  const clean = run([multi, "--for", "cursor", "--verify"]);
+  check("a clean install reports no leftovers", clean.code === 0 && !/leftover/.test(clean.out));
+
+  writeFileSync(join(dest, "scripts", "old.sh"), "stale\n");
+  t("verify warns about a leftover file and names it",
+    [multi, "--for", "cursor", "--verify"], 0, /WARN\s+.*pack\s+1 leftover file not in the source: scripts\/old\.sh/);
+  t("a leftover does not change the verdict",
+    [multi, "--for", "cursor", "--verify"], 0, /warn\s+1 leftover file[\s\S]*verified existing install/);
+  check("verify never deletes a leftover", existsSync(join(dest, "scripts", "old.sh")));
+
+  const installed = run([multi, "--for", "cursor"]);
+  check("a plain install does not scan for leftovers", installed.code === 0 && !/leftover/.test(installed.out));
+
+  t("--all names the leftover in its one-line summary",
+    [multi, "--for", "cursor", "--verify", "--all"], 0, /!\s+.*pack\s+1 leftover file not in the source: scripts\/old\.sh/);
+
+  for (const n of ["a.md", "b.md", "c.md"]) writeFileSync(join(dest, n), "x\n");
+  t("a long leftover list is shortened with a count",
+    [multi, "--for", "cursor", "--verify"], 0, /4 leftover files not in the source: .*\+1 more/);
+  for (const n of ["a.md", "b.md", "c.md"]) rmSync(join(dest, n));
+
+  mkdirSync(join(dest, "node_modules", "dep"), { recursive: true });
+  writeFileSync(join(dest, "node_modules", "dep", "index.js"), "x\n");
+  const deps = run([multi, "--for", "cursor", "--verify"]);
+  check("never-skill directories are not counted as leftovers", /1 leftover file/.test(deps.out) && !/node_modules/.test(deps.out));
+
+  // A real failure and a leftover in one run: both reported, and it still fails.
+  rmSync(join(dest, "reference", "notes.md"));
+  t("a leftover does not hide a real failure",
+    [multi, "--for", "cursor", "--verify"], 1, /reference\/notes\.md[\s\S]*leftover file[\s\S]*failed verification/);
+}
+
 // Antigravity is written to three directories, all of which it reads. A skill
 // complete in ONE of them is installed; demanding all three manufactures
 // failures. (This produced two of three false failures on a real install.)

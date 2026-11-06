@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.7.0
+
+### Added
+- **`--verify` warns about leftover files.** A reinstall never deletes, so a file dropped from a
+  skill stayed on disk and the install still read as verified. Anything in the installed directory
+  that the source lacks is now named. It is a warning, not a failure, and nothing is removed, because
+  those files may have been added by a person or the agent. Skipped for raw `.md` sources.
+
+### Notes
+- Renamed and removed skills are still not detected; that would need a record of what was installed.
+  The README now says so. Raised by a reader asking whether verify catches stale files.
+
 ## 1.6.0
 
 ### Added

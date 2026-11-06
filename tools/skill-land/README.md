@@ -134,6 +134,21 @@ Where an agent has several directories it reads, `--verify` counts the skill as 
 it is **complete in any one of them**. Requiring every fallback to hold a copy reports
 working installs as broken.
 
+### Leftover files
+
+Installing copies over the top and never deletes, so a file dropped from a skill stays on disk
+after a reinstall. `--verify` lists anything in the installed directory that the source does not
+have:
+
+```
+OK    ~/.codex/skills/pack  3/3 files  (verify only)
+WARN  ~/.codex/skills/pack  1 leftover file not in the source: scripts/old.sh
+```
+
+This is a warning and does not change the exit code, because an installed directory can also hold
+files a person or the agent added, and nothing here can tell those from stale ones. `skill-land`
+never deletes them. It is skipped for a raw `.md` source, which only knows about `SKILL.md`.
+
 ### Does the agent actually load it? `--discover`
 
 Everything above proves the bytes are on disk. It does not prove the agent loads them: it may
@@ -166,6 +181,11 @@ Verification assumes the installer **copied**. Some installers **rewrite** on in
 `.gemini/skills/...` and `$impeccable` to `/impeccable`. Those files are correct and will
 still report `content matches source` failures, because they genuinely differ from the source.
 `skill-land` reports the difference and does not guess which side is right.
+
+**Renamed and removed skills are not detected.** `skill-land` keeps no record of what it installed,
+and the install directory comes from the skill's `name`. After a rename the old directory stays
+next to the new one, and `--verify` only looks at the new one. A skill removed from its source is
+never looked at. There is no uninstall command, so delete the old directory by hand.
 
 Tested against: truncated file, wrong skill in the right place, missing file,
 unwritable destination, and a real `npx skills add` install (correctly reported FAIL).

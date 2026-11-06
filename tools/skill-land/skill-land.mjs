@@ -35,6 +35,7 @@ const TRUECOLOR = /truecolor|24bit/i.test(process.env.COLORTERM || "");
 const paintIf = (code) => (s) => COLOR ? `\x1b[${code}m${s}\x1b[0m` : s;
 const emerald = paintIf(TRUECOLOR ? "38;2;89;195;120" : "38;5;78"); // brand emerald #59C378
 const red = paintIf(TRUECOLOR ? "38;2;239;83;80" : "38;5;203");
+const amber = paintIf(TRUECOLOR ? "38;2;230;170;60" : "38;5;179");
 const status = (ok) => ok ? emerald("OK  ") : red("FAIL");
 // Paths under the home directory read as ~/..., the way people type them.
 const tilde = (p) => p === homedir() || p.startsWith(homedir() + "/") ? "~" + p.slice(homedir().length) : p;
@@ -339,6 +340,26 @@ function verify(target, expected) {
   return checks;
 }
 
+// Reading back the source's files cannot see a file the source no longer has:
+// reinstalling copies over the top and never deletes, so a script dropped from a
+// skill stays on disk and the install still reads as verified.
+//
+// A warning, not a failure, and never a delete: an installed directory can hold
+// files a person or the agent added, and nothing here can tell those from stale
+// ones. A raw .md source knows only SKILL.md, so it cannot judge the rest at all.
+function findLeftovers(destDir, files) {
+  if (src.kind === "raw") return [];
+  const known = new Set(files.map((f) => f.rel));
+  return collectSkillFiles(destDir, "SKILL.md").filter((rel) => !known.has(rel));
+}
+
+// Names the files as well as the count: a warning you have to re-run to act on
+// is not much of a warning.
+function leftoverLine(destDir, extras) {
+  const more = extras.length > 3 ? ` +${extras.length - 3} more` : "";
+  return `${tilde(destDir)}  ${extras.length} leftover file${extras.length === 1 ? "" : "s"} not in the source: ${extras.slice(0, 3).join(", ")}${more}`;
+}
+
 // ---------------------------------------------------------------- per skill
 
 // One skill, every target path: scan, disclose, write, read back. Factored out
@@ -467,8 +488,9 @@ function runSkill(skillPath, root, quiet) {
 
       const absent = badFiles.length === files.length
         && badFiles.every((b) => b.checks.some((c) => c.name === "file exists" && !c.pass));
-      baseResults.push({ destDir, badFiles, passed: badFiles.length === 0, absent });
-      baseSummaries.push({ destDir, passed: badFiles.length === 0, absent,
+      const extras = verifyOnly ? findLeftovers(destDir, files) : [];
+      baseResults.push({ destDir, badFiles, passed: badFiles.length === 0, absent, extras });
+      baseSummaries.push({ destDir, passed: badFiles.length === 0, absent, extras,
                            n: files.length - badFiles.length });
     }
 
@@ -488,11 +510,15 @@ function runSkill(skillPath, root, quiet) {
       if (!quiet) {
         for (const r of baseResults) {
           const n = files.length - r.badFiles.length;
+          const warnLeftovers = () => {
+            if (r.extras.length) console.log(`    ${amber("WARN")}  ${leftoverLine(r.destDir, r.extras)}`);
+          };
           // Nothing present at all is one fact, not N failures. Listing every
           // absent file buries the directories that are partially installed,
           // which are the ones worth looking at.
           if (r.absent) {
             console.log(`    ${red("FAIL")}  ${tilde(r.destDir)}  not installed${verifyOnly ? "  (verify only)" : ""}`);
+            warnLeftovers();
             continue;
           }
           console.log(`    ${status(r.passed)}  ${tilde(r.destDir)}  ${n}/${files.length} file${files.length === 1 ? "" : "s"}${verifyOnly ? "  (verify only)" : ""}`);
@@ -501,6 +527,7 @@ function runSkill(skillPath, root, quiet) {
             for (const c of b.checks) if (!c.pass) console.log(`              ${c.name}: ${c.detail}`);
           }
           if (r.badFiles.length > 10) console.log(`            ... and ${r.badFiles.length - 10} more file(s)`);
+          warnLeftovers();
         }
         if (verifyOnly && agentPassed && baseResults.some((r) => !r.passed))
           console.log(`    note  complete in at least one directory ${a.display} reads; that is an install`);
@@ -524,8 +551,12 @@ function runSkill(skillPath, root, quiet) {
     for (const b of baseSummaries.filter((x) => !x.passed)) {
       console.log(`        x ${tilde(b.destDir)}  ${b.absent ? "not installed" : `${b.n}/${files.length} files`}`);
     }
+    for (const b of baseSummaries.filter((x) => x.extras.length)) {
+      console.log(`        ! ${leftoverLine(b.destDir, b.extras)}`);
+    }
   }
-  return { name: skillName, fmName: fm.name, failed: skillFailed, skipped: skillSkipped };
+  const leftovers = baseSummaries.reduce((n, b) => n + b.extras.length, 0);
+  return { name: skillName, fmName: fm.name, failed: skillFailed, skipped: skillSkipped, leftovers };
 }
 
 // ---------------------------------------------------------------- discover
@@ -713,6 +744,7 @@ if (allSkills && values("--skill").length)
 const src = resolveSource(source);
 const tmp = mkdtempSync(join(tmpdir(), "skill-install-"));
 let failed = 0;
+let leftovers = 0;
 const skipped = [];
 const landed = [];
 
@@ -728,6 +760,7 @@ try {
   for (const skillPath of skillPaths) {
     const r = runSkill(skillPath, root, quiet);
     failed += r.failed;
+    leftovers += r.leftovers || 0;
     if (r.skipped) skipped.push(r.name);
     else if (!r.failed) landed.push(r.fmName || r.name);
   }
@@ -751,6 +784,13 @@ if (discoverFlag && !dryRun) {
     console.log("  discovery  fresh session, neutral directory\n");
     for (const t of targets) failed += discover(t, landed);
   }
+}
+
+// Printed before the verdict so a green "verified" is not the last word on a
+// directory that holds more than the source does.
+if (leftovers) {
+  console.log(`  ${amber("warn")}  ${leftovers} leftover file${leftovers === 1 ? "" : "s"} not in the source. They may be stale, or added by you or the agent.`);
+  console.log(`        The agent can still read them. Nothing was removed; review and delete by hand.\n`);
 }
 
 if (failed) {
