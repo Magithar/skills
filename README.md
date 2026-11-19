@@ -14,7 +14,7 @@
 ---
 
 <p align="center">
-  <a href="#skills">Skills</a> • <a href="#install">Install</a> • <a href="#layout">Layout</a> • <a href="#toolsskill-land">skill-land</a> • <a href="#adding-a-skill">Adding a Skill</a> • <a href="#design-rules">Design Rules</a>
+  <a href="#skills">Skills</a> • <a href="#install">Install</a> • <a href="#layout">Layout</a> • <a href="#skill-land">skill-land</a> • <a href="#adding-a-skill">Adding a Skill</a> • <a href="#design-rules">Design Rules</a>
 </p>
 
 ---
@@ -110,14 +110,13 @@ skills/
   plugin.json                     lists every published skill
 .claude/skills/<name>/SKILL.md    symlink, so the skills work inside this repo too
 scripts/sync-plugin.mjs           regenerates plugin.json and the symlinks from disk
-tools/skill-land/                 CLI: install a skill, then prove it landed
 ```
 
 `tools/` sits outside `skills/`, so nothing in it is scanned or published to the plugin manifest.
 
 ---
 
-## tools/skill-land
+## skill-land
 
 Installs a skill to the directory the agent actually reads, then verifies the file landed and
 exits non-zero if it didn't. Built because `npx skills add -g` reports success while writing
@@ -139,7 +138,7 @@ It reports differences rather than judging them. An installer that **rewrites** 
 differ from source; `skill-land` says so and leaves the call to you.
 
 Published as [`skill-land`](https://www.npmjs.com/package/skill-land) on npm.
-Source and docs: [tools/skill-land/](tools/skill-land/README.md).
+Source, docs and issues: [Magithar/skill-land](https://github.com/Magithar/skill-land).
 
 ---
 
@@ -195,9 +194,9 @@ values. A report that copies live data into itself has caused the problem it was
 
 - [SKILLmama](https://github.com/Magithar/SKILLmama), capability discovery engine. Kept in its own
   repo because its published articles and skills.sh listing point there.
-- [skill-land](https://www.npmjs.com/package/skill-land) on npm.
-- [CHANGELOG.md](CHANGELOG.md) for skills and repo tooling. `skill-land` versions separately and has
-  [its own](tools/skill-land/CHANGELOG.md).
+- [skill-land](https://github.com/Magithar/skill-land), install a skill and prove it
+  landed. Kept in its own repo because it is an npm CLI with its own versions and releases, not a plugin.
+- [CHANGELOG.md](CHANGELOG.md) for skills and repo tooling.
 
 ## License
 

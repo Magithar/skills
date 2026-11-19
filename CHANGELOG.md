@@ -1,6 +1,15 @@
 # Changelog
 
-Skills and repo tooling. [`skill-land`](tools/skill-land/CHANGELOG.md) versions separately.
+Skills and repo tooling. [`skill-land`](https://github.com/Magithar/skill-land) lives in its own repo and versions
+separately.
+
+## Unreleased
+
+### Changed
+- **`skill-land` moved to [Magithar/skill-land](https://github.com/Magithar/skill-land)**, with full history.
+  `tools/skill-land/`, its CI job and `publish-skill-land.yml` are gone from this repo. Releases up
+  to 1.7.0 stay here as `skill-land-v*` tags; new releases are tagged `v*` there. It is an npm CLI,
+  not a plugin, so it is linked from the README rather than listed in `marketplace.json`.
 
 ## 0.3.1
 
@@ -26,12 +35,12 @@ Skills and repo tooling. [`skill-land`](tools/skill-land/CHANGELOG.md) versions 
   `SKILL.md` alone, so a 1-of-148-file install of `impeccable` reported "verified". Found by
   running 1.2.0's own `--verify --all` against a real `~/.agents/skills` and checking all three
   failures it reported — every one was false. See
-  [tools/skill-land/CHANGELOG.md](tools/skill-land/CHANGELOG.md).
+  [skill-land's CHANGELOG](https://github.com/Magithar/skill-land/blob/main/CHANGELOG.md).
 - **Antigravity's global skill directories are now live-verified**, not inferred: a canary skill in
   each candidate directory, then `agy -p "/skills"` from a neutral workspace on `agy` 1.1.27.
   `~/.gemini/config/skills`, `~/.gemini/skills` and `~/.gemini/antigravity-cli/skills` are read;
   `~/.agents/skills` and `~/.gemini/antigravity/skills` are not. Details in
-  [tools/skill-land/CHANGELOG.md](tools/skill-land/CHANGELOG.md).
+  [skill-land's CHANGELOG](https://github.com/Magithar/skill-land/blob/main/CHANGELOG.md).
 
 ## 0.3.0
 
@@ -107,5 +116,5 @@ Skills and repo tooling. [`skill-land`](tools/skill-land/CHANGELOG.md) versions 
 - SKILLmama listed in the marketplace from its own repository. The local `magithar-skills` plugin is
   listed only once it contains at least one skill, since a plugin entry that installs nothing looks
   like it worked and did nothing.
-- [`skill-land`](tools/skill-land/) under `tools/`, outside `skills/` so it is never scanned or
+- [`skill-land`](https://github.com/Magithar/skill-land) under `tools/`, outside `skills/` so it is never scanned or
   published as a skill.
