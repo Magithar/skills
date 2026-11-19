@@ -84,13 +84,15 @@ curl -sL https://raw.githubusercontent.com/Magithar/skills/main/skills/engineeri
 Restart Antigravity after installing; it reads skills at startup.
 
 > `npx skills add ... -g` currently writes to `~/.agents/skills/` for Codex and Antigravity, which
-> neither agent reads, and still exits 0. Verified against `skills@1.5.22` on 2026-08-08. Tracked
-> upstream in [vercel-labs/skills#1060](https://github.com/vercel-labs/skills/issues/1060), fix
-> pending in [PR #1483](https://github.com/vercel-labs/skills/pull/1483).
+> neither agent reads, and still exits 0. Re-verified on `skills@1.7.6` on 2026-11-06. Tracked
+> upstream in [vercel-labs/skills#1060](https://github.com/vercel-labs/skills/issues/1060). The
+> proposed fix, [PR #1483](https://github.com/vercel-labs/skills/pull/1483), closed without merging.
 >
 > The other half is on Antigravity's side: `~/.agents/skills` is not a global search path there.
-> Confirmed live on `agy` 1.1.27 (2026-09-05) — it appears only when its parent is the active
-> workspace (`agy --add-dir $HOME`), which is project-local behaviour. Tracked in
+> Confirmed live on `agy` 1.1.27 (2026-09-05) and re-confirmed on 1.3.2 (2026-10-10), the latest
+> release, despite a maintainer reply that it was fixed. A skill installed there appears and can be
+> used only when its parent is the active workspace (`agy --add-dir $HOME`), which is project-local
+> behaviour. Tracked in
 > [antigravity-cli#103](https://github.com/google-antigravity/antigravity-cli/issues/103), open.
 
 ---
