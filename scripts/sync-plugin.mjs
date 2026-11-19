@@ -125,7 +125,8 @@ const want = desiredLinks(found);
 if (process.argv.includes("--check")) {
   const { missing, wrong, stale, foreign } = linkDrift(want);
   const linksOk = !missing.length && !wrong.length && !stale.length && !foreign.length;
-  if (same && linksOk) {
+  const kwDrift = keywordDrift();
+  if (same && linksOk && !kwDrift) {
     console.log(`plugin.json and .claude/skills in sync (${found.length} skill(s))`);
     process.exit(0);
   }
@@ -141,6 +142,7 @@ if (process.argv.includes("--check")) {
     for (const s of stale) console.error("  link with no skill behind it: .claude/skills/" + s.name);
     for (const f of foreign) console.error("  not a symlink, cannot manage: .claude/skills/" + f.name);
   }
+  if (kwDrift) console.error(`marketplace.json "${LOCAL_PLUGIN}" keywords differ from plugin.json.`);
   console.error("Run: node scripts/sync-plugin.mjs");
   process.exit(1);
 }
@@ -177,5 +179,19 @@ function syncMarketplace(skillCount) {
     mp.plugins = mp.plugins.filter((p) => p.name !== LOCAL_PLUGIN);
     writeFileSync(MARKETPLACE, JSON.stringify(mp, null, 2) + "\n");
     console.log(`marketplace.json: unlisted "${LOCAL_PLUGIN}" (0 skills — nothing to install)`);
+  } else if (has && keywordDrift()) {
+    // plugin.json is the source of truth for keywords; keep the listing in step.
+    mp.plugins.find((p) => p.name === LOCAL_PLUGIN).keywords = manifest.keywords || [];
+    writeFileSync(MARKETPLACE, JSON.stringify(mp, null, 2) + "\n");
+    console.log(`marketplace.json: updated "${LOCAL_PLUGIN}" keywords from plugin.json`);
   }
+}
+
+// True when the marketplace entry for the local plugin lists different
+// keywords than plugin.json. An unlisted plugin has nothing to drift.
+function keywordDrift() {
+  const mp = JSON.parse(readFileSync(MARKETPLACE, "utf-8"));
+  const entry = mp.plugins.find((p) => p.name === LOCAL_PLUGIN);
+  if (!entry) return false;
+  return JSON.stringify(entry.keywords || []) !== JSON.stringify(manifest.keywords || []);
 }
