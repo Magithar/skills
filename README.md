@@ -3,7 +3,7 @@
 <p align="center">
   <img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License"/>
   <a href="https://github.com/Magithar/skills/actions/workflows/check.yml"><img src="https://github.com/Magithar/skills/actions/workflows/check.yml/badge.svg" alt="CI"/></a>
-  <a href="https://www.npmjs.com/package/skill-land"><img src="https://img.shields.io/npm/v/skill-land?label=skill-land" alt="skill-land on npm"/></a>
+  <a href="https://github.com/Magithar/skill-land"><img src="https://img.shields.io/npm/v/skill-land?label=skill-land" alt="skill-land on npm"/></a>
 </p>
 
 <p align="center">
@@ -39,6 +39,14 @@ live outside the prompt.
 
 A marketplace can list plugins that live in other repos, so SKILLmama keeps its own repository,
 issues and release history while still being installable from here.
+
+### Tools
+
+| Tool | What it answers | Where it lives |
+|---|---|---|
+| [`skill-land`](#skill-land) | Did the skill actually land where the agent reads it? Installs, then verifies every file. | [Magithar/skill-land](https://github.com/Magithar/skill-land) · [npm](https://www.npmjs.com/package/skill-land) |
+
+A tool is an npm CLI, not a plugin, so it is not listed in `marketplace.json`.
 
 ---
 
@@ -117,6 +125,8 @@ scripts/sync-plugin.mjs           regenerates plugin.json and the symlinks from 
 ---
 
 ## skill-land
+
+> Lives in its own repo: **[Magithar/skill-land](https://github.com/Magithar/skill-land)**.
 
 Installs a skill to the directory the agent actually reads, then verifies the file landed and
 exits non-zero if it didn't. Built because `npx skills add -g` reports success while writing
