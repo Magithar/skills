@@ -21,11 +21,15 @@
 
 ## Skills
 
-| Skill | What it answers | Where it lives |
-|---|---|---|
-| [`dep-egress`](skills/engineering/dep-egress/SKILL.md) | What does this dependency send off the machine, to whom, is it disclosed, and can it be turned off? | this repo |
-| [`evidence-loop`](skills/engineering/evidence-loop/SKILL.md) | Has this experiment's evidence actually been verified, reviewed and closed before the hypothesis conclusion is trusted? | this repo |
-| [`skillmama`](https://github.com/Magithar/SKILLmama) | Which library, SDK or tool should I use for my stack, and is it safe? | [Magithar/SKILLmama](https://github.com/Magithar/SKILLmama), also a [CLI](#skillmama) |
+**[`dep-egress`](skills/engineering/dep-egress/SKILL.md)**<br/>
+What does this dependency send off the machine, to whom, is it disclosed, and can it be turned off?
+
+**[`evidence-loop`](skills/engineering/evidence-loop/SKILL.md)**<br/>
+Has this experiment's evidence actually been verified, reviewed and closed before the hypothesis
+conclusion is trusted?
+
+**[`skillmama`](https://github.com/Magithar/SKILLmama)** · own repo, [Magithar/SKILLmama](https://github.com/Magithar/SKILLmama) · also a [CLI](#skillmama)<br/>
+Which library, SDK or tool should I use for my stack, and is it safe?
 
 The two compose. SKILLmama ranks candidates on compatibility, popularity, maintenance and
 simplicity. `dep-egress` runs on the winner and answers the question ranking says nothing about.
@@ -121,10 +125,12 @@ scripts/sync-plugin.mjs           regenerates plugin.json and the symlinks from 
 Run with `npx`, no install. Each lives in its own repo and is published to npm. They are not plugins,
 so they are not listed in `marketplace.json`.
 
-| CLI | What it answers | Where it lives |
-|---|---|---|
-| [`skill-land`](#skill-land) | Did the skill actually land where the agent reads it? Installs, then verifies every file. | [Magithar/skill-land](https://github.com/Magithar/skill-land) · [npm](https://www.npmjs.com/package/skill-land) |
-| [`skillmama`](#skillmama) | The deterministic half of SKILLmama: what is this project built on, and do a package's live-data checks pass? | [Magithar/SKILLmama](https://github.com/Magithar/SKILLmama) · [npm](https://www.npmjs.com/package/skillmama) |
+**[`skill-land`](#skill-land)** · [Magithar/skill-land](https://github.com/Magithar/skill-land) · [npm](https://www.npmjs.com/package/skill-land)<br/>
+Did the skill actually land where the agent reads it? Installs, then verifies every file.
+
+**[`skillmama`](#skillmama)** · [Magithar/SKILLmama](https://github.com/Magithar/SKILLmama) · [npm](https://www.npmjs.com/package/skillmama)<br/>
+The deterministic half of SKILLmama: what is this project built on, and do a package's live-data
+checks pass?
 
 ### skill-land
 
