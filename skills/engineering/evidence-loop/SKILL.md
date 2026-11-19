@@ -41,10 +41,10 @@ precondition already holds.
    |---|---|
    | `verify <id> <path>` | Mechanically checks a raw artifact (hash, structure, git baseline). `path` may be a single file or a directory of related files (an evidence bundle) — the whole set is hashed together. Never call this before the artifact actually exists. |
    | `result <id> --classification --mechanism --hypothesis-status --observation --interpretation` | Records a result from verified evidence. `classification` is `CONCLUSIVE`/`INCONCLUSIVE`/`DEGENERATE`; `mechanism` is `EXERCISED`/`UNEXERCISED`; `hypothesis-status` is `SUPPORTED`/`REFUTED`/`UNTESTED`. |
-   | `review-result <id> --reviewer <name> [--self]` | Records that the result was reviewed. Pass `--self` only when no independent reviewer is available and you are reviewing your own recorded result — see below. |
+   | `review-result <id> --reviewer <name> [--self]` | Records that the result was reviewed. Get an independent review first — see "Independent review by subagent" below. Pass `--self` only when no subagent capability is available and you are reviewing your own recorded result. |
    | `commit-artifact <id> [--local]` | Commits the raw artifact (or bundle) to git, separately from interpretation. Fails if it changed since verification — that means it's new evidence, not this one. Pass `--local` to pin the artifact's hash for integrity without writing it into the subject repository's git history — use when the raw evidence itself (command output, environment detail, etc.) shouldn't become part of that repo's public/shared history. |
    | `close <id> --status --established --not-established --remaining-questions` | Records closure. `status` is `CONFIRMED`/`REFUTED`/`INCONCLUSIVE`; it should follow the recorded result the same way `hypothesis_status` does — `SUPPORTED`/`CONCLUSIVE` results close `CONFIRMED`, `REFUTED` results close `REFUTED`, and `DEGENERATE`/`UNTESTED` or otherwise inconclusive results close `INCONCLUSIVE`. |
-   | `review-closure <id> --reviewer <name> [--self]` | Records that closure was reviewed. Same `--self` rule as `review-result`. |
+   | `review-closure <id> --reviewer <name> [--self]` | Records that closure was reviewed. Same independent-review procedure and `--self` rule as `review-result`. |
    | `gate <id>` | Confirms every prior gate condition and opens the hypothesis gate. Only this command may end an experiment's evidence loop. |
 
 4. If the CLI rejects the command (illegal transition, or a semantic validation error), that rejection is
@@ -53,6 +53,50 @@ precondition already holds.
    fix the actual problem (wrong state, missing artifact, an inconsistent classification), and re-run.
 5. Report the transition and stop. On the next invocation, start again from step 1 — do not rely on
    memory of where the experiment was.
+
+## Independent review by subagent
+
+`review-result` and `review-closure` exist to catch conclusions that got ahead of the evidence. A
+review by the same agent that recorded the result is the weakest form of that check — it re-reads its
+own reasoning and tends to agree with it. When you have the ability to spawn a subagent, use one as the
+independent reviewer instead of `--self`.
+
+Procedure, when `next_command` is `review-result` or `review-closure`:
+
+1. **Assemble a stripped record** — only what a reviewer can observe, with the persuasion removed:
+   - the hypothesis text
+   - the `verify` facts (baseline commit, artifact hash, component/row counts)
+   - the raw artifact itself (file or bundle contents), or its path if large
+   - the recorded fields under review: for `review-result`, `classification` / `mechanism` /
+     `hypothesis-status` / `observation` / `interpretation`; for `review-closure`, `status` /
+     `established` / `not-established` / `remaining-questions`
+   - **Leave out**: any prior "Review notes", the soak's motivation, and any framing about why
+     independent review matters or what you expect the reviewer to find.
+
+2. **Spawn a fresh subagent** (`Explore` for a read-only check, `general-purpose` if it needs to run a
+   command to reproduce something) with just that record and this task:
+   - verify every quoted detail (verdicts, IDs, exit codes, counts) against the raw artifact
+   - judge whether `classification` / `mechanism` / `hypothesis-status` (or the closure fields) are
+     justified **by the artifact alone**, not by the observation prose
+   - name any evidence or reasoning gap — specifically, any claim in the observation/interpretation
+     that the artifact does not actually show (e.g. "mechanism EXERCISED" when nothing distinguishes a
+     live call from a cached or mocked response of the same shape)
+   - do not manufacture disagreement; confirm what is sound
+
+3. **Act on what it finds before transitioning.** If it surfaces a substantive gap, fix the record
+   (re-run `result` / `close` if the CLI permits, or fold the caveat into `remaining-questions`) and
+   re-assemble the stripped record for a second pass. Only record the review once the reviewer's
+   substantive points are addressed.
+
+4. **Record it as a real review**: `review-result <id> --reviewer "independent-subagent"` (no
+   `--self`). Put the reviewer's actual findings in the board's review notes.
+
+5. **Fall back to `--self`** only when no subagent capability is available in the current environment.
+   Never label a `--self` review as independent.
+
+This is the one part of the loop with direct evidence behind it: experiment E004 in the SKILLmama soak
+showed a cold subagent review, given only the stripped record, caught two substantive gaps that the
+original self-review missed while correctly confirming the parts that were sound.
 
 ## Rules you must never route around
 
@@ -66,11 +110,12 @@ precondition already holds.
   experiment (`evidence-loop new`), not an edit to the old one.
 - **Never skip states**, even when you're confident the intermediate step is a formality. `next --json`
   is the only thing that tells you what's legal.
-- **Never claim an independent review you didn't get.** If you (the same agent or person who recorded the
-  result or closure) are also the one reviewing it, pass `--self` on `review-result`/`review-closure`.
-  This does not block the transition — self-review is allowed — but it must stay visible as self-review on
-  the board and in the sidecar (`review_kind: SELF`) rather than looking identical to a real independent
-  check. Do not fabricate a second reviewer identity to make it look independent when it wasn't.
+- **Never claim an independent review you didn't get.** A subagent given the stripped record (see
+  "Independent review by subagent") is a real independent review. Reviewing your own recorded result or
+  closure yourself is not — pass `--self` on `review-result`/`review-closure` for that. Self-review does
+  not block the transition, but it must stay visible as self-review on the board and in the sidecar
+  (`review_kind: SELF`) rather than looking identical to a real independent check. Do not fabricate a
+  second reviewer identity, and do not label a `--self` review as `independent-subagent`.
 
 See `docs/evidence-loop/protocol.md`, `docs/evidence-loop/state-machine.md`, and
 `docs/evidence-loop/board-format.md` in this repo for the full specification.
