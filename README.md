@@ -14,7 +14,7 @@
 ---
 
 <p align="center">
-  <a href="#skills">Skills</a> • <a href="#install">Install</a> • <a href="#layout">Layout</a> • <a href="#skill-land">skill-land</a> • <a href="#adding-a-skill">Adding a Skill</a> • <a href="#design-rules">Design Rules</a>
+  <a href="#skills">Skills</a> • <a href="#install">Install</a> • <a href="#layout">Layout</a> • <a href="#clis">CLIs</a> • <a href="#adding-a-skill">Adding a Skill</a> • <a href="#design-rules">Design Rules</a>
 </p>
 
 ---
@@ -25,7 +25,7 @@
 |---|---|---|
 | [`dep-egress`](skills/engineering/dep-egress/SKILL.md) | What does this dependency send off the machine, to whom, is it disclosed, and can it be turned off? | this repo |
 | [`evidence-loop`](skills/engineering/evidence-loop/SKILL.md) | Has this experiment's evidence actually been verified, reviewed and closed before the hypothesis conclusion is trusted? | this repo |
-| [`skillmama`](https://github.com/Magithar/SKILLmama) | Which library, SDK or tool should I use for my stack, and is it safe? | [Magithar/SKILLmama](https://github.com/Magithar/SKILLmama) |
+| [`skillmama`](https://github.com/Magithar/SKILLmama) | Which library, SDK or tool should I use for my stack, and is it safe? | [Magithar/SKILLmama](https://github.com/Magithar/SKILLmama), also a [CLI](#skillmama) |
 
 The two compose. SKILLmama ranks candidates on compatibility, popularity, maintenance and
 simplicity. `dep-egress` runs on the winner and answers the question ranking says nothing about.
@@ -39,14 +39,6 @@ live outside the prompt.
 
 A marketplace can list plugins that live in other repos, so SKILLmama keeps its own repository,
 issues and release history while still being installable from here.
-
-### Tools
-
-| Tool | What it answers | Where it lives |
-|---|---|---|
-| [`skill-land`](#skill-land) | Did the skill actually land where the agent reads it? Installs, then verifies every file. | [Magithar/skill-land](https://github.com/Magithar/skill-land) · [npm](https://www.npmjs.com/package/skill-land) |
-
-A tool is an npm CLI, not a plugin, so it is not listed in `marketplace.json`.
 
 ---
 
@@ -124,9 +116,17 @@ scripts/sync-plugin.mjs           regenerates plugin.json and the symlinks from 
 
 ---
 
-## skill-land
+## CLIs
 
-> Lives in its own repo: **[Magithar/skill-land](https://github.com/Magithar/skill-land)**.
+Run with `npx`, no install. Each lives in its own repo and is published to npm. They are not plugins,
+so they are not listed in `marketplace.json`.
+
+| CLI | What it answers | Where it lives |
+|---|---|---|
+| [`skill-land`](#skill-land) | Did the skill actually land where the agent reads it? Installs, then verifies every file. | [Magithar/skill-land](https://github.com/Magithar/skill-land) · [npm](https://www.npmjs.com/package/skill-land) |
+| [`skillmama`](#skillmama) | The deterministic half of SKILLmama: what is this project built on, and do a package's live-data checks pass? | [Magithar/SKILLmama](https://github.com/Magithar/SKILLmama) · [npm](https://www.npmjs.com/package/skillmama) |
+
+### skill-land
 
 Installs a skill to the directory the agent actually reads, then verifies the file landed and
 exits non-zero if it didn't. Built because `npx skills add -g` reports success while writing
@@ -149,6 +149,23 @@ differ from source; `skill-land` says so and leaves the call to you.
 
 Published as [`skill-land`](https://www.npmjs.com/package/skill-land) on npm.
 Source, docs and issues: [Magithar/skill-land](https://github.com/Magithar/skill-land).
+
+### skillmama
+
+The parts of SKILLmama's pipeline that need no model: reading a project's stack, and the live-data
+checks on a package (OSV.dev advisories, npm publisher continuity, popularity and maintenance bands).
+
+```bash
+npx skillmama scan                          # detect languages and dependencies in this directory
+npx skillmama check zod --version 4.6.7     # live-data checks on one package version
+npx skillmama check requests --ecosystem PyPI --version 2.34.2   # other ecosystems need --version
+```
+
+`check` does not read the package's docs or code, so a `PASS` means the live-data checks found
+nothing, not that the package is safe; the output says so first. Exit code 3 means `BLOCKED`.
+
+Published as [`skillmama`](https://www.npmjs.com/package/skillmama) on npm.
+Source, docs and issues: [Magithar/SKILLmama](https://github.com/Magithar/SKILLmama).
 
 ---
 
